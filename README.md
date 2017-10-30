@@ -16,6 +16,6 @@ from pprint import pprint
 
 cagr = CAGR('id.ufsc', 'password')
 
-pprint(cagr.user_classes('18101234'))
-pprint(cagr.course_info('GIT0101', '20181'))
+pprint(cagr.user('18101234'))
+pprint(cagr.course('GIT0101', '20181'))
 ```

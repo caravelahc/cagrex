@@ -19,7 +19,7 @@ class CAGR:
         self.username = username
         self.password = password
 
-    def user_classes(self, user_id):
+    def user(self, user_id):
         browser = mechanicalsoup.StatefulBrowser()
 
         url = 'https://sistemas.ufsc.br/login'
@@ -42,19 +42,30 @@ class CAGR:
 
         rows = zip(*columns)
 
-        classes = (
-            {'course_name': course_name.text.strip(),
-             'course_id': course_id.text.strip(),
-             'class_id': class_id.text.strip(),
-             'semester': semester.text.strip()}
+        program = page.find('span', class_='texto_negrito_pequeno2')
+        program = program.get_text(strip=True).replace('Curso: ', '')
+
+        user = {
+            'name': page.find('strong').get_text(strip=True),
+            'program': program.title()
+        }
+
+        courses = (
+            {'course_name': course_name.get_text(strip=True),
+             'course_id': course_id.get_text(strip=True),
+             'class_id': class_id.get_text(strip=True),
+             'semester': semester.get_text(strip=True)}
             for course_name, course_id, class_id, semester in rows
         )
 
-        return [c for c in classes
-                if '[MONITOR]' not in c['course_name']
-                and c['course_name'] != '-' and c['course_id'] != '-']
+        user['courses'] = [c for c in courses
+                           if '[MONITOR]' not in c['course_name']
+                           and c['course_name'] != '-'
+                           and c['course_id'] != '-']
 
-    def course_info(self, course_id, semester):
+        return user
+
+    def course(self, course_id, semester):
         base_url = ('https://cagr.sistemas.ufsc.br/'
                     'modules/comunidade/cadastroTurmas/')
         cookies = requests.get(base_url).cookies
