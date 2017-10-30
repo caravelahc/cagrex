@@ -19,7 +19,9 @@ class CAGR:
         self.username = username
         self.password = password
 
-    def user(self, user_id):
+    def student(self, user_id):
+        user_id = int(user_id)
+
         browser = mechanicalsoup.StatefulBrowser()
 
         url = 'https://sistemas.ufsc.br/login'
@@ -43,7 +45,7 @@ class CAGR:
         rows = zip(*columns)
 
         program = page.find('span', class_='texto_negrito_pequeno2')
-        program = program.get_text(strip=True).replace('Curso: ', '')
+        program = program.get_text(strip=True).split(':')[-1].strip()
 
         user = {
             'name': page.find('strong').get_text(strip=True),
