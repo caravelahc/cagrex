@@ -19,8 +19,8 @@ class CAGR:
         self.username = username
         self.password = password
 
-    def student(self, user_id):
-        user_id = int(user_id)
+    def student(self, student_id):
+        student_id = int(student_id)
 
         browser = mechanicalsoup.StatefulBrowser()
 
@@ -34,7 +34,7 @@ class CAGR:
         browser.submit_selected()
 
         url = 'http://forum.cagr.ufsc.br/mostrarPerfil.jsf'
-        params = {'usuarioTipo': 'Aluno', 'usuarioId': user_id}
+        params = {'usuarioTipo': 'Aluno', 'usuarioId': student_id}
         browser.open(url, params=params)
 
         page = browser.get_current_page()
@@ -47,7 +47,7 @@ class CAGR:
         program = page.find('span', class_='texto_negrito_pequeno2')
         program = program.get_text(strip=True).split(':')[-1].strip()
 
-        user = {
+        student = {
             'name': page.find('strong').get_text(strip=True),
             'program': program.title()
         }
@@ -60,12 +60,12 @@ class CAGR:
             for course_name, course_id, class_id, semester in rows
         )
 
-        user['courses'] = [c for c in courses
+        student['courses'] = [c for c in courses
                            if '[MONITOR]' not in c['course_name']
                            and c['course_name'] != '-'
                            and c['course_id'] != '-']
 
-        return user
+        return student
 
     def course(self, course_id, semester):
         base_url = ('https://cagr.sistemas.ufsc.br/'
