@@ -6,11 +6,11 @@ from bs4 import BeautifulSoup
 def parse_time(time):
         time, room = time.split(' / ')
         weekday, time = time.split('.')
-        time, length = time.split('-')
+        time, duration = time.split('-')
 
         return {'weekday': int(weekday) - 1,
                 'time': time,
-                'duration': length,
+                'duration': int(duration),
                 'room': room}
 
 
