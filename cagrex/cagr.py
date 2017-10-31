@@ -18,54 +18,51 @@ class CAGR:
     def __init__(self, username, password):
         self.username = username
         self.password = password
+        self.auth()
+
+    def auth(self):
+        self.browser = mechanicalsoup.StatefulBrowser()
+
+        url = 'https://sistemas.ufsc.br/login'
+        params = {'service': 'http://forum.cagr.ufsc.br/'}
+        self.browser.open(url, params=params)
+
+        self.browser.select_form('#fm1')
+        self.browser['username'] = self.username
+        self.browser['password'] = self.password
+        self.browser.submit_selected()
 
     def student(self, student_id):
         student_id = int(student_id)
 
-        browser = mechanicalsoup.StatefulBrowser()
-
-        url = 'https://sistemas.ufsc.br/login'
-        params = {'service': 'http://forum.cagr.ufsc.br/'}
-        browser.open(url, params=params)
-
-        browser.select_form('#fm1')
-        browser['username'] = self.username
-        browser['password'] = self.password
-        browser.submit_selected()
-
         url = 'http://forum.cagr.ufsc.br/mostrarPerfil.jsf'
         params = {'usuarioTipo': 'Aluno', 'usuarioId': student_id}
-        browser.open(url, params=params)
+        self.browser.open(url, params=params)
 
-        page = browser.get_current_page()
+        page = self.browser.get_current_page()
 
         columns = (page.find_all('td', class_=f'coluna{i+1}_listar_salas')
                    for i in range(4))
 
         rows = zip(*columns)
-
-        program = page.find('span', class_='texto_negrito_pequeno2')
-        program = program.get_text(strip=True).split(':')[-1].strip()
-
-        student = {
-            'name': page.find('strong').get_text(strip=True),
-            'program': program.title()
-        }
-
-        courses = (
+        courses = [
             {'course_name': course_name.get_text(strip=True),
              'course_id': course_id.get_text(strip=True),
              'class_id': class_id.get_text(strip=True),
              'semester': semester.get_text(strip=True)}
             for course_name, course_id, class_id, semester in rows
-        )
+        ]
 
-        student['courses'] = [c for c in courses
-                           if '[MONITOR]' not in c['course_name']
-                           and c['course_name'] != '-'
-                           and c['course_id'] != '-']
+        program = page.find('span', class_='texto_negrito_pequeno2')
+        program = program.get_text(strip=True).split(':')[-1].strip()
 
-        return student
+        return {
+            'name': page.find('strong').get_text(strip=True),
+            'program': program.title(),
+            'courses': [c for c in courses
+                        if '[MONITOR]' not in c['course_name']
+                        and c['course_name'] != '-' and c['course_id'] != '-']
+        }
 
     def course(self, course_id, semester):
         base_url = ('https://cagr.sistemas.ufsc.br/'
@@ -120,3 +117,13 @@ class CAGR:
             course['classes'].append(c)
 
         return course
+
+    def semesters(self):
+        url = ('https://cagr.sistemas.ufsc.br/'
+               'modules/comunidade/cadastroTurmas/')
+
+        html = requests.get(url).text
+        soup = BeautifulSoup(html, 'html.parser')
+
+        select = soup.find('select', id='formBusca:selectSemestre')
+        return [option['value'] for option in select.find_all('option')]
