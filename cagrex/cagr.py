@@ -8,10 +8,10 @@ def parse_time(time):
         weekday, time = time.split('.')
         time, duration = time.split('-')
 
-        return {'weekday': int(weekday) - 1,
-                'time': time,
-                'duration': int(duration),
-                'room': room}
+        return {'dia_da_semana': int(weekday) - 1,
+                'horario': time,
+                'duracao': int(duration),
+                'sala': room}
 
 
 class CAGR:
@@ -46,10 +46,10 @@ class CAGR:
 
         rows = zip(*columns)
         courses = [
-            {'course_name': course_name.get_text(strip=True),
-             'course_id': course_id.get_text(strip=True),
-             'class_id': class_id.get_text(strip=True),
-             'semester': semester.get_text(strip=True)}
+            {'nome': course_name.get_text(strip=True),
+             'id': course_id.get_text(strip=True),
+             'turma': class_id.get_text(strip=True),
+             'semestre': semester.get_text(strip=True)}
             for course_name, course_id, class_id, semester in rows
         ]
 
@@ -57,11 +57,11 @@ class CAGR:
         program = program.get_text(strip=True).split(':')[-1].strip()
 
         return {
-            'name': page.find('strong').get_text(strip=True),
-            'program': program.title(),
-            'courses': [c for c in courses
-                        if '[MONITOR]' not in c['course_name']
-                        and c['course_name'] != '-' and c['course_id'] != '-']
+            'nome': page.find('strong').get_text(strip=True),
+            'curso': program.title(),
+            'disciplinas': [c for c in courses
+                            if '[MONITOR]' not in c['nome']
+                            and c['nome'] != '-' and c['id'] != '-']
         }
 
     def course(self, course_id, semester):
@@ -92,29 +92,29 @@ class CAGR:
         syllabus = syllabus.get_text('\n', strip=True)
 
         course = {
-            'course_id': course_id.upper(),
-            'name': first_row[5],
-            'syllabus': syllabus,
-            'class_hours': first_row[6],
+            'id': course_id.upper(),
+            'nome': first_row[5],
+            'ementa': syllabus,
+            'horas_aula': int(first_row[6]),
         }
 
-        course['classes'] = []
+        course['disciplinas'] = []
         for row in soup.find_all('tr', class_='rich-table-row'):
             row = row.find_all('td')
 
             c = {
-                'class_id': row[4].text,
-                'total_slots': int(row[7].text),
-                'available_slots': int(row[10].text.replace('LOTADA', '0')),
-                'requests_awaiting': int(row[11].text or '0'),
-                'professors': row[-1].get_text('\n', strip=True).splitlines(),
-                'times': [
+                'turma': row[4].text,
+                'vagas_ofertadas': int(row[7].text),
+                'vagas_disponiveis': int(row[10].text.replace('LOTADA', '0')),
+                'pedidos_sem_vaga': int(row[11].text or '0'),
+                'professores': row[-1].get_text('\n', strip=True).splitlines(),
+                'horarios': [
                     parse_time(time)
                     for time in row[-2].get_text('\n', strip=True).splitlines()
                 ],
             }
 
-            course['classes'].append(c)
+            course['disciplinas'].append(c)
 
         return course
 
