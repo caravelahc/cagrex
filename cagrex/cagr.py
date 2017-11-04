@@ -98,12 +98,12 @@ class CAGR:
             'horas_aula': int(first_row[6]),
         }
 
-        course['disciplinas'] = []
+        course['turmas'] = []
         for row in soup.find_all('tr', class_='rich-table-row'):
             row = row.find_all('td')
 
             c = {
-                'turma': row[4].text,
+                'id': row[4].text,
                 'vagas_ofertadas': int(row[7].text),
                 'vagas_disponiveis': int(row[10].text.replace('LOTADA', '0')),
                 'pedidos_sem_vaga': int(row[11].text or '0'),
@@ -114,7 +114,7 @@ class CAGR:
                 ],
             }
 
-            course['disciplinas'].append(c)
+            course['turmas'].append(c)
 
         return course
 
