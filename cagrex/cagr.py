@@ -94,6 +94,7 @@ class CAGR:
 
         course = {
             'id': course_id.upper(),
+            'semestre': int(semester),
             'nome': first_row[5],
             'ementa': syllabus,
             'horas_aula': int(first_row[6]),
