@@ -57,6 +57,7 @@ class CAGR:
         program = program.get_text(strip=True).split(':')[-1].strip()
 
         return {
+            'id': student_id,
             'nome': page.find('strong').get_text(strip=True),
             'curso': program.title(),
             'disciplinas': [c for c in courses
