@@ -3,7 +3,10 @@ import requests
 from bs4 import BeautifulSoup
 
 
-def parse_time(time):
+CAGR_URL = ('https://cagr.sistemas.ufsc.br/modules/comunidade/cadastroTurmas/')
+
+
+def _parse_time(time):
         time, room = time.split(' / ')
         weekday, time = time.split('.')
         time, duration = time.split('-')
@@ -12,6 +15,50 @@ def parse_time(time):
                 'horario': time,
                 'duracao': int(duration),
                 'sala': room}
+
+
+def _parse_class(row):
+    cells = [c.get_text('\n', strip=True) for c in row.find_all('td')]
+    return {
+        'id_disciplina': cells[3],
+        'nome': cells[5],
+        'horas_aula': int(cells[6]),
+        'id_turma': cells[4],
+        'vagas_ofertadas': int(cells[7]),
+        'vagas_disponiveis': int(cells[10].replace('LOTADA', '0')),
+        'pedidos_sem_vaga': int(cells[11] or '0'),
+        'professores': cells[-1].splitlines(),
+        'horarios': [_parse_time(time) for time in cells[-2].splitlines()],
+    }
+
+
+def _course_from_classes(classes):
+    classes = list(classes)
+    first = classes[0]
+    course_id = first['id_disciplina'].upper()
+
+    response = requests.get(
+        CAGR_URL + f'ementaDisciplina.xhtml?codigoDisciplina={course_id}'
+    )
+    syllabus = BeautifulSoup(response.text, 'html.parser').find('td')
+    syllabus = syllabus.get_text('\n', strip=True)
+
+    course = {
+        'id': course_id,
+        'nome': first['nome'],
+        'ementa': syllabus,
+        'horas_aula': first['horas_aula'],
+        'turmas': []
+    }
+
+    for c in classes:
+        del c['nome']
+        del c['id_disciplina']
+        del c['horas_aula']
+        c['id'] = c.pop('id_turma')
+        course['turmas'].append(c)
+
+    return course
 
 
 class CAGR:
@@ -66,9 +113,7 @@ class CAGR:
         }
 
     def course(self, course_id, semester):
-        base_url = ('https://cagr.sistemas.ufsc.br/'
-                    'modules/comunidade/cadastroTurmas/')
-        cookies = requests.get(base_url).cookies
+        cookies = requests.get(CAGR_URL).cookies
 
         form_data = {
             'AJAXREQUEST': '_viewRoot',
@@ -79,52 +124,19 @@ class CAGR:
             'formBusca:codigoDisciplina': course_id,
         }
 
-        response = requests.post(base_url, data=form_data, cookies=cookies)
-        soup = BeautifulSoup(response.text)
+        response = requests.post(CAGR_URL, data=form_data, cookies=cookies)
+        soup = BeautifulSoup(response.text, 'html.parser')
 
-        first_row = soup.find('tr', class_='rich-table-firstrow')
-        first_row = [cell.get_text('\n', strip=True)
-                     for cell in first_row.find_all('td')]
-
-        response = requests.get(
-            base_url + f'ementaDisciplina.xhtml?codigoDisciplina={course_id}'
+        course = _course_from_classes(
+            _parse_class(row)
+            for row in soup.find_all('tr', class_='rich-table-row')
         )
-        syllabus = BeautifulSoup(response.text).find('td')
-        syllabus = syllabus.get_text('\n', strip=True)
 
-        course = {
-            'id': course_id.upper(),
-            'semestre': int(semester),
-            'nome': first_row[5],
-            'ementa': syllabus,
-            'horas_aula': int(first_row[6]),
-        }
-
-        course['turmas'] = []
-        for row in soup.find_all('tr', class_='rich-table-row'):
-            row = row.find_all('td')
-
-            c = {
-                'id': row[4].text,
-                'vagas_ofertadas': int(row[7].text),
-                'vagas_disponiveis': int(row[10].text.replace('LOTADA', '0')),
-                'pedidos_sem_vaga': int(row[11].text or '0'),
-                'professores': row[-1].get_text('\n', strip=True).splitlines(),
-                'horarios': [
-                    parse_time(time)
-                    for time in row[-2].get_text('\n', strip=True).splitlines()
-                ],
-            }
-
-            course['turmas'].append(c)
-
+        course.update(semestre=int(semester))
         return course
 
     def semesters(self):
-        url = ('https://cagr.sistemas.ufsc.br/'
-               'modules/comunidade/cadastroTurmas/')
-
-        html = requests.get(url).text
+        html = requests.get(CAGR_URL).text
         soup = BeautifulSoup(html, 'html.parser')
 
         select = soup.find('select', id='formBusca:selectSemestre')
