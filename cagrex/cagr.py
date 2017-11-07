@@ -80,7 +80,7 @@ class CAGR:
         self.browser.submit_selected()
 
     def student(self, student_id):
-        student_id = int(student_id)
+        student_id = student_id
 
         url = 'http://forum.cagr.ufsc.br/mostrarPerfil.jsf'
         params = {'usuarioTipo': 'Aluno', 'usuarioId': student_id}
