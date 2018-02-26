@@ -56,15 +56,15 @@ def _course_from_classes(classes):
         'nome': first['nome'],
         'ementa': syllabus,
         'horas_aula': first['horas_aula'],
-        'turmas': []
+        'turmas': {}
     }
 
     for c in classes:
         del c['nome']
         del c['id_disciplina']
         del c['horas_aula']
-        c['id'] = c.pop('id_turma')
-        course['turmas'].append(c)
+        class_id = c.pop('id_turma')
+        course['turmas'][class_id] = c
 
     return course
 
@@ -122,7 +122,7 @@ class CAGR:
                             and c['nome'] != '-' and c['id'] != '-']
         }
 
-    def course(self, course_id, semester):
+    def course(self, course_id, semester=None):
         session = requests.Session()
 
         response = session.get(CAGR_URL)
@@ -135,7 +135,7 @@ class CAGR:
             'formBusca': 'formBusca',
             'javax.faces.ViewState': 'j_id1',
             submit_id: submit_id,
-            'formBusca:selectSemestre': semester,
+            'formBusca:selectSemestre': semester or self.semesters()[0],
             'formBusca:codigoDisciplina': course_id,
         }
 
