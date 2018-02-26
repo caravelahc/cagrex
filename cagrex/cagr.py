@@ -3,18 +3,26 @@ import requests
 from bs4 import BeautifulSoup
 
 
-CAGR_URL = ('https://cagr.sistemas.ufsc.br/modules/comunidade/cadastroTurmas/')
+CAGR_URL = 'https://cagr.sistemas.ufsc.br/modules/comunidade/cadastroTurmas/'
+
+
+class InvalidCredentials(Exception):
+    pass
+
+
+class NotLoggedIn(Exception):
+    pass
 
 
 def _parse_time(time):
-        time, room = time.split(' / ')
-        weekday, time = time.split('.')
-        time, duration = time.split('-')
+    time, room = time.split(' / ')
+    weekday, time = time.split('.')
+    time, duration = time.split('-')
 
-        return {'dia_da_semana': int(weekday) - 1,
-                'horario': time,
-                'duracao': int(duration),
-                'sala': room}
+    return {'dia_da_semana': int(weekday) - 1,
+            'horario': time,
+            'duracao': int(duration),
+            'sala': room}
 
 
 def _parse_class(row):
@@ -62,31 +70,33 @@ def _course_from_classes(classes):
 
 
 class CAGR:
-    def __init__(self, username, password):
-        self.username = username
-        self.password = password
-        self.auth()
+    def __init__(self):
+        self._browser = mechanicalsoup.StatefulBrowser()
+        self._logged_in = False
 
-    def auth(self):
-        self.browser = mechanicalsoup.StatefulBrowser()
+    def login(self, username, password):
+        self._browser.open('https://sistemas.ufsc.br/login',
+                           params={'service': 'http://forum.cagr.ufsc.br/'})
 
-        url = 'https://sistemas.ufsc.br/login'
-        params = {'service': 'http://forum.cagr.ufsc.br/'}
-        self.browser.open(url, params=params)
+        self._browser.select_form('#fm1')
+        self._browser['username'] = username
+        self._browser['password'] = password
 
-        self.browser.select_form('#fm1')
-        self.browser['username'] = self.username
-        self.browser['password'] = self.password
-        self.browser.submit_selected()
+        response = self._browser.submit_selected()
+        if response.ok:
+            self._logged_in = True
+        else:
+            raise InvalidCredentials()
 
     def student(self, student_id):
-        student_id = student_id
+        if not self._logged_in:
+            raise NotLoggedIn()
 
         url = 'http://forum.cagr.ufsc.br/mostrarPerfil.jsf'
         params = {'usuarioTipo': 'Aluno', 'usuarioId': student_id}
-        self.browser.open(url, params=params)
+        self._browser.open(url, params=params)
 
-        page = self.browser.get_current_page()
+        page = self._browser.get_current_page()
 
         columns = (page.find_all('td', class_=f'coluna{i+1}_listar_salas')
                    for i in range(4))
@@ -113,18 +123,23 @@ class CAGR:
         }
 
     def course(self, course_id, semester):
-        cookies = requests.get(CAGR_URL).cookies
+        session = requests.Session()
+
+        response = session.get(CAGR_URL)
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        submit_id = soup.find(value='Buscar')['id']
 
         form_data = {
             'AJAXREQUEST': '_viewRoot',
             'formBusca': 'formBusca',
             'javax.faces.ViewState': 'j_id1',
-            'formBusca:j_id122': 'formBusca:j_id122',
+            submit_id: submit_id,
             'formBusca:selectSemestre': semester,
             'formBusca:codigoDisciplina': course_id,
         }
 
-        response = requests.post(CAGR_URL, data=form_data, cookies=cookies)
+        response = session.post(CAGR_URL, data=form_data)
         soup = BeautifulSoup(response.text, 'html.parser')
 
         course = _course_from_classes(

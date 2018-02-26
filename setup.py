@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='cagrex',
-    version='0.1.4',
+    version='0.2.0',
     packages=find_packages(),
     install_requires=['requests', 'bs4', 'mechanicalsoup'],
 )

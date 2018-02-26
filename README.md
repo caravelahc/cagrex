@@ -13,32 +13,7 @@ Usage
 >>> from cagrex import CAGR
 >>> from pprint import pprint
 
->>> cagr = CAGR('id.ufsc', 'password')
-
->>> pprint(c.student(16100719))
-{'id': 16100719,
- 'nome': 'Cauê Baasch de Souza',
- 'curso': 'Ciências Da Computação',
- 'disciplinas': [{'id': 'INE5413',
-                  'nome': 'Grafos',
-                  'semestre': '20172',
-                  'turma': '04208'},
-                 {'id': 'INE5414',
-                  'nome': 'Redes de Computadores I',
-                  'semestre': '20172',
-                  'turma': '04208'},
-                 {'id': 'INE5415',
-                  'nome': 'Teoria da Computação',
-                  'semestre': '20172',
-                  'turma': '04208'},
-                 {'id': 'INE5416',
-                  'nome': 'Paradigmas de Programação',
-                  'semestre': '20172',
-                  'turma': '04208'},
-                 {'id': 'INE5417',
-                  'nome': 'Engenharia de Software I',
-                  'semestre': '20172',
-                  'turma': '04208B'}]}
+>>> cagr = CAGR()
 
 >>> pprint(cagr.course('INE5417', '20172'))
 {'id': 'INE5417',
@@ -79,4 +54,31 @@ Usage
                            'duracao': 2,
                            'horario': '0820',
                            'sala': 'AUX-ALOCAR'}]}]
+
+>>> cagr.login('id.ufsc', 'password')
+>>> pprint(cagr.student(16100719))
+{'id': 16100719,
+ 'nome': 'Cauê Baasch de Souza',
+ 'curso': 'Ciências Da Computação',
+ 'disciplinas': [{'id': 'INE5413',
+                  'nome': 'Grafos',
+                  'semestre': '20172',
+                  'turma': '04208'},
+                 {'id': 'INE5414',
+                  'nome': 'Redes de Computadores I',
+                  'semestre': '20172',
+                  'turma': '04208'},
+                 {'id': 'INE5415',
+                  'nome': 'Teoria da Computação',
+                  'semestre': '20172',
+                  'turma': '04208'},
+                 {'id': 'INE5416',
+                  'nome': 'Paradigmas de Programação',
+                  'semestre': '20172',
+                  'turma': '04208'},
+                 {'id': 'INE5417',
+                  'nome': 'Engenharia de Software I',
+                  'semestre': '20172',
+                  'turma': '04208B'}]}
+
 ```
