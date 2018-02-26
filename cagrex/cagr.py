@@ -128,8 +128,8 @@ class CAGR:
         return course
 
     def courses(self, course_ids, semester):
-        response = requests.get(CAGR_URL)
-        cookies = response.cookies
+        session = requests.Session()
+        response = session.get(CAGR_URL)
         soup = BeautifulSoup(response.text, 'html.parser')
         submit_id = soup.find(value='Buscar')['id']
 
@@ -143,13 +143,13 @@ class CAGR:
 
         rs = (
             grequests.post(CAGR_URL,
-                           cookies=cookies,
+                           session=session,
                            data={**form_data,
                                  'formBusca:codigoDisciplina': course_id})
             for course_id in course_ids
         )
 
-        responses = grequests.imap(rs)
+        responses = grequests.imap(rs, size=1)
         for response in responses:
             soup = BeautifulSoup(response.text, 'html.parser')
 
