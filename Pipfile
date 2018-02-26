@@ -9,6 +9,7 @@ name = "pypi"
 
 mechanicalsoup = "*"
 requests = "*"
+grequests = "*"
 "bs4" = "*"
 
 

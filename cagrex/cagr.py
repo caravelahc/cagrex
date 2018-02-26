@@ -1,9 +1,10 @@
-import mechanicalsoup
+import grequests  # this has to come before any import involving requests
+import mechanicalsoup  # including this one
 import requests
 from bs4 import BeautifulSoup
 
 
-CAGR_URL = 'https://cagr.sistemas.ufsc.br/modules/comunidade/cadastroTurmas/'
+CAGR_URL = 'http://cagr.sistemas.ufsc.br/modules/comunidade/cadastroTurmas/'
 
 
 class InvalidCredentials(Exception):
@@ -123,11 +124,13 @@ class CAGR:
         }
 
     def course(self, course_id, semester):
-        session = requests.Session()
+        course, *_ = self.courses([course_id], semester)
+        return course
 
-        response = session.get(CAGR_URL)
+    def courses(self, course_ids, semester):
+        response = requests.get(CAGR_URL)
+        cookies = response.cookies
         soup = BeautifulSoup(response.text, 'html.parser')
-
         submit_id = soup.find(value='Buscar')['id']
 
         form_data = {
@@ -136,19 +139,27 @@ class CAGR:
             'javax.faces.ViewState': 'j_id1',
             submit_id: submit_id,
             'formBusca:selectSemestre': semester,
-            'formBusca:codigoDisciplina': course_id,
         }
 
-        response = session.post(CAGR_URL, data=form_data)
-        soup = BeautifulSoup(response.text, 'html.parser')
-
-        course = _course_from_classes(
-            _parse_class(row)
-            for row in soup.find_all('tr', class_='rich-table-row')
+        rs = (
+            grequests.post(CAGR_URL,
+                           cookies=cookies,
+                           data={**form_data,
+                                 'formBusca:codigoDisciplina': course_id})
+            for course_id in course_ids
         )
 
-        course.update(semestre=int(semester))
-        return course
+        responses = grequests.imap(rs)
+        for response in responses:
+            soup = BeautifulSoup(response.text, 'html.parser')
+
+            course = _course_from_classes(
+                _parse_class(row)
+                for row in soup.find_all('tr', class_='rich-table-row')
+            )
+
+            course.update(semestre=int(semester))
+            yield course
 
     def semesters(self):
         html = requests.get(CAGR_URL).text
