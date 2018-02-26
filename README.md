@@ -16,9 +16,7 @@ Usage
 >>> cagr = CAGR()
 
 >>> pprint(cagr.course('INE5417', '20172'))
-{'id': 'INE5417',
- 'nome': 'Engenharia de Software I',
- 'ementa': 'Análise de requisitos: requisitos funcionais e requisitos '
+{'ementa': 'Análise de requisitos: requisitos funcionais e requisitos '
            'não-funcionais; técnicas para levantamento e representação de '
            'requisitos, incluindo casos de uso. Modelagem OO: classe, '
            'atributo, associação, agregação e herança. Projeto OO: técnicas '
@@ -26,34 +24,34 @@ Usage
            'projeto de arquitetura; mapeamento objeto-relacional. Linguagem de '
            'especificação orientada a objetos. Métodos de análise e projeto '
            'orientados a objetos. Desenvolvimento de um software OO.',
- 'semestre': 20172,
  'horas_aula': 90,
- 'turmas': [{'id': '04208A',
-             'professores': ['Ricardo Pereira e Silva'],
-             'vagas_ofertadas': 24,
-             'vagas_disponiveis': 2,
-             'pedidos_sem_vaga': 0,
-             'horarios': [{'dia_da_semana': 2,
-                           'duracao': 3,
-                           'horario': '1330',
-                           'sala': 'CTC-CTC108'},
-                          {'dia_da_semana': 3,
-                           'duracao': 2,
-                           'horario': '0820',
-                           'sala': 'CTC-CTC107'}]},
-            {'id': '04208B',
-             'professores': ['Patricia Vilain'],
-             'vagas_ofertadas': 22},
-             'vagas_disponiveis': 0,
-             'pedidos_sem_vaga': 0,
-             'horarios': [{'dia_da_semana': 2,
-                           'duracao': 3,
-                           'horario': '1330',
-                           'sala': 'AUX-ALOCAR'},
-                          {'dia_da_semana': 3,
-                           'duracao': 2,
-                           'horario': '0820',
-                           'sala': 'AUX-ALOCAR'}]}]
+ 'id': 'INE5417',
+ 'nome': 'Engenharia de Software I',
+ 'semestre': 20181,
+ 'turmas': {'04208A': {'horarios': [{'dia_da_semana': 2,
+                                     'duracao': 3,
+                                     'horario': '1330',
+                                     'sala': 'CTC-CTC108'},
+                                    {'dia_da_semana': 3,
+                                     'duracao': 2,
+                                     'horario': '0820',
+                                     'sala': 'CTC-CTC107'}],
+                       'pedidos_sem_vaga': 0,
+                       'professores': ['Ricardo Pereira e Silva'],
+                       'vagas_disponiveis': 10,
+                       'vagas_ofertadas': 25},
+            '04208B': {'horarios': [{'dia_da_semana': 2,
+                                     'duracao': 3,
+                                     'horario': '1330',
+                                     'sala': 'AUX-ALOCAR'},
+                                    {'dia_da_semana': 3,
+                                     'duracao': 2,
+                                     'horario': '0820',
+                                     'sala': 'AUX-ALOCAR'}],
+                       'pedidos_sem_vaga': 0,
+                       'professores': ['Patricia Vilain'],
+                       'vagas_disponiveis': 9,
+                       'vagas_ofertadas': 25}}}
 
 >>> cagr.login('id.ufsc', 'password')
 >>> pprint(cagr.student(16100719))

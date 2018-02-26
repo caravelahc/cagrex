@@ -122,7 +122,7 @@ class CAGR:
                             and c['nome'] != '-' and c['id'] != '-']
         }
 
-    def course(self, course_id, semester=None):
+    def course(self, course_id, semester):
         session = requests.Session()
 
         response = session.get(CAGR_URL)
@@ -135,7 +135,7 @@ class CAGR:
             'formBusca': 'formBusca',
             'javax.faces.ViewState': 'j_id1',
             submit_id: submit_id,
-            'formBusca:selectSemestre': semester or self.semesters()[0],
+            'formBusca:selectSemestre': semester,
             'formBusca:codigoDisciplina': course_id,
         }
 
