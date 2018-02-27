@@ -1,5 +1,7 @@
-import grequests  # this has to come before any import involving requests
-import mechanicalsoup  # including this one
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
+
+import mechanicalsoup
 import requests
 from bs4 import BeautifulSoup
 
@@ -124,10 +126,6 @@ class CAGR:
         }
 
     def course(self, course_id, semester):
-        course, *_ = self.courses([course_id], semester)
-        return course
-
-    def courses(self, course_ids, semester):
         session = requests.Session()
         response = session.get(CAGR_URL)
         soup = BeautifulSoup(response.text, 'html.parser')
@@ -139,27 +137,24 @@ class CAGR:
             'javax.faces.ViewState': 'j_id1',
             submit_id: submit_id,
             'formBusca:selectSemestre': semester,
+            'formBusca:codigoDisciplina': course_id,
         }
 
-        rs = (
-            grequests.post(CAGR_URL,
-                           session=session,
-                           data={**form_data,
-                                 'formBusca:codigoDisciplina': course_id})
-            for course_id in course_ids
+        response = session.post(CAGR_URL, data=form_data)
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        course = _course_from_classes(
+            _parse_class(row)
+            for row in soup.find_all('tr', class_='rich-table-row')
         )
 
-        responses = grequests.imap(rs, size=1)
-        for response in responses:
-            soup = BeautifulSoup(response.text, 'html.parser')
+        course.update(semestre=int(semester))
+        return course
 
-            course = _course_from_classes(
-                _parse_class(row)
-                for row in soup.find_all('tr', class_='rich-table-row')
-            )
-
-            course.update(semestre=int(semester))
-            yield course
+    def courses(self, course_ids, semester):
+        with ThreadPoolExecutor() as executor:
+            func = partial(self.course, semester=semester)
+            return executor.map(func, course_ids)
 
     def semesters(self):
         html = requests.get(CAGR_URL).text
