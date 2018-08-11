@@ -173,8 +173,15 @@ class CAGR:
         if not self._logged_in:
             raise NotLoggedIn()
 
+        url = 'https://cagr.sistemas.ufsc.br/modules/aluno/historicoEscolar/'
+        self._browser.open(url)
+        page = self._browser.get_current_page()
+
+        program_id = page.find_all('td', class_='aluno_info_col2')
+        program_id = str(program_id[4].get_text()[0:3])
+
         url = 'http://forum.cagr.ufsc.br/listarMembros.jsf'
-        params = {'salaId': 100000208}  # hardcoded CCO program id
+        params = {'salaId': '100000' + program_id}
         self._browser.open(url, params=params)
         page = self._browser.get_current_page()
 
