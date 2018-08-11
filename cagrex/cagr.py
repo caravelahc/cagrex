@@ -3,6 +3,7 @@ from functools import partial
 
 import mechanicalsoup
 import requests
+from collections import Counter
 from bs4 import BeautifulSoup
 
 
@@ -70,6 +71,11 @@ def _course_from_classes(classes):
         course['turmas'][class_id] = c
 
     return course
+
+
+def _get_semester_from_id(student_id):
+    student_id = str(student_id)
+    return student_id[0:2] + '.' + student_id[2]
 
 
 class CAGR:
@@ -162,3 +168,38 @@ class CAGR:
 
         select = soup.find('select', id='formBusca:selectSemestre')
         return [option['value'] for option in select.find_all('option')]
+
+    def students_per_semester(self):
+        if not self._logged_in:
+            raise NotLoggedIn()
+
+        url = 'https://cagr.sistemas.ufsc.br/modules/aluno/historicoEscolar/'
+        self._browser.open(url)
+        page = self._browser.get_current_page()
+
+        program_id = page.find_all('td', class_='aluno_info_col2')
+        program_id = str(program_id[4].get_text()[0:3])
+
+        url = 'http://forum.cagr.ufsc.br/listarMembros.jsf'
+        params = {'salaId': '100000' + program_id}
+        self._browser.open(url, params=params)
+        page = self._browser.get_current_page()
+
+        students = page.find_all('tr', class_='cor1_celula_forum')
+        students.extend(page.find_all('tr', class_='cor2_celula_forum'))
+
+        counter = Counter()
+        for student in students:
+            semester = student.find(
+                'span',
+                class_='texto_pequeno3').get_text()
+            semester = _get_semester_from_id(semester)
+            counter[semester] += 1
+
+        program_student_count = {
+            'curso': page.find('td',
+                               class_='coluna5_listar_membros').get_text(),
+            'alunos_por_semestre': counter.most_common()
+        }
+
+        return program_student_count
