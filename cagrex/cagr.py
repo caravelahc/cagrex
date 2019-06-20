@@ -78,16 +78,19 @@ def _get_semester_from_id(student_id):
     return student_id[0:2] + '.' + student_id[2]
 
 
-def _get_students_from_forum(page):
-    students = page.find_all('tr', class_='cor1_celula_forum')
-    students.extend(page.find_all('tr', class_='cor2_celula_forum'))
-    return students
-
-
 class CAGR:
     def __init__(self):
         self._browser = mechanicalsoup.StatefulBrowser()
         self._logged_in = False
+
+    def _students_from_forum(self):
+        url = 'http://forum.cagr.ufsc.br/listarMembros.jsf'
+        params = {'salaId': '100000' + self.program_id()}
+        self._browser.open(url, params=params)
+        page = self._browser.get_current_page()
+        students = page.find_all('tr', class_='cor1_celula_forum')
+        students.extend(page.find_all('tr', class_='cor2_celula_forum'))
+        return students
 
     def login(self, username, password):
         self._browser.open('https://sistemas.ufsc.br/login',
@@ -201,11 +204,8 @@ class CAGR:
         if not self._logged_in:
             raise NotLoggedIn()
 
-        url = 'http://forum.cagr.ufsc.br/listarMembros.jsf'
-        params = {'salaId': '100000' + self.program_id()}
-        self._browser.open(url, params=params)
+        students = self._students_from_forum()
         page = self._browser.get_current_page()
-        students = _get_students_from_forum(page)
 
         counter = Counter()
         for student in students:
@@ -245,17 +245,14 @@ class CAGR:
         if not self._logged_in:
             raise NotLoggedIn()
 
-        url = 'http://forum.cagr.ufsc.br/listarMembros.jsf'
-        params = {'salaId': '100000' + self.program_id()}
-        self._browser.open(url, params=params)
+        students = self._students_from_forum()
         page = self._browser.get_current_page()
-        students = _get_students_from_forum(page)
 
         program_name = page.find(
             'td',
             class_='coluna5_listar_membros').get_text()
 
         return {
-            "curso": program_name,
-            "estudantes": len(students)
+            'curso': program_name,
+            'estudantes': len(students)
         }
