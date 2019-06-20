@@ -1,8 +1,9 @@
-from concurrent.futures import ThreadPoolExecutor
-from functools import partial
-
 import mechanicalsoup
 import requests
+
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
+from threading import Thread, Lock
 from collections import Counter
 from bs4 import BeautifulSoup
 
@@ -255,4 +256,38 @@ class CAGR:
         return {
             'curso': program_name,
             'estudantes': len(students)
+        }
+
+    def suspended_students(self):
+        if not self._logged_in:
+            raise NotLoggedIn()
+
+        students = self._students_from_forum()
+        page = self._browser.get_current_page()
+
+        program_name = page.find(
+            'td',
+            class_='coluna5_listar_membros').get_text()
+
+        suspended = 0
+        for student in students:
+            profile_url = 'http://forum.cagr.ufsc.br/mostrarPerfil.jsf'
+            semester = student.find(
+                'span',
+                class_='texto_pequeno3').get_text()
+            params = {'usuarioId': semester, 'usuarioTipo': 'Aluno'}
+            self._browser.open(profile_url, params=params)
+            page = self._browser.get_current_page()
+
+            status_text = page.find_all(
+                'span',
+                class_='texto_pequeno1')[1]
+            if 'trancado' in str(status_text):
+                suspended += 1
+
+        return {
+            'curso': program_name,
+            'estudantes': len(students),
+            'alunos_trancados': suspended,
+            'porcentagem': (suspended / len(students)) * 100.0
         }

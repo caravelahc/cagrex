@@ -110,4 +110,11 @@ Usage
 
 >>> pprint(cagr.total_students())
 {'curso': 'CIÊNCIAS DA COMPUTAÇÃO', 'estudantes': 497}
+
+>>> pprint(cagr.suspended_students())
+{'curso': 'CIÊNCIAS DA COMPUTAÇÃO',
+ 'estudantes': 497,
+ 'alunos_trancados': 35,
+ 'porcentagem': 7.042253521126761}
+
 ```
