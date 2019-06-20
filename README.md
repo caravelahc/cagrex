@@ -107,4 +107,7 @@ Usage
 [{'id': 16100719, 'name': 'Cauê Baasch de Souza'},
  ...
  {'id': 12345678, 'name': 'John Doe'}]
+
+>>> pprint(cagr.total_students())
+{'curso': 'CIÊNCIAS DA COMPUTAÇÃO', 'estudantes': 497}
 ```
