@@ -79,7 +79,7 @@ Usage
                   'semestre': '20172',
                   'turma': '04208B'}]}
 
->>> pprint(cagr.students_per_semester())
+>>> pprint(cagr.students_per_semester(cagr.program_id()))
 {'curso': 'CIÊNCIAS DA COMPUTAÇÃO',
 'alunos_por_semestre': [('18.2', 50),
                         ('17.2', 48),
@@ -108,10 +108,10 @@ Usage
  ...
  {'id': 12345678, 'name': 'John Doe'}]
 
->>> pprint(cagr.total_students())
+>>> pprint(cagr.total_students(cagr.program_id()))
 {'curso': 'CIÊNCIAS DA COMPUTAÇÃO', 'estudantes': 497}
 
->>> pprint(cagr.suspended_students())
+>>> pprint(cagr.suspended_students(cagr.program_id()))
 {'curso': 'CIÊNCIAS DA COMPUTAÇÃO',
  'estudantes': 497,
  'alunos_trancados': 35,
