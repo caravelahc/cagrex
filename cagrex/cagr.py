@@ -131,6 +131,17 @@ class CAGR:
                             and c['nome'] != '-' and c['id'] != '-']
         }
 
+    def program_id(self):
+        if not self._logged_in:
+            raise NotLoggedIn()
+
+        url = 'https://cagr.sistemas.ufsc.br/modules/aluno/historicoEscolar/'
+        self._browser.open(url)
+        page = self._browser.get_current_page()
+
+        program_id = page.find_all('td', class_='aluno_info_col2')
+        return str(program_id[4].get_text()[0:3])
+
     def course(self, course_id, semester):
         session = requests.Session()
         response = session.get(CAGR_URL)
@@ -203,3 +214,20 @@ class CAGR:
         }
 
         return program_student_count
+
+    def students_from_course(self, program_id):
+        url = 'http://forum.cagr.ufsc.br/listarMembros.jsf'
+        params = {'salaId': '100000' + program_id}
+        self._browser.open(url, params=params)
+        page = self._browser.get_current_page()
+
+        students = page.find_all('tr', class_='cor1_celula_forum')
+        students.extend(page.find_all('tr', class_='cor2_celula_forum'))
+
+        return [{
+            'id': int(
+                student.find('td', class_='coluna2_listar_membros').get_text()
+            ),
+            'nome':
+                student.find('td', class_='coluna4_listar_membros').get_text(),
+        } for student in students]
