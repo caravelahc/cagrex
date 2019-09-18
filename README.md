@@ -102,4 +102,9 @@ Usage
                         ('09.1', 1),
                         ('10.1', 1),
                         ('08.2', 1)]}
+
+>>> pprint(cagr.students_from_course(cagr.program_id()))
+[{'id': 16100719, 'name': 'Cauê Baasch de Souza'},
+ ...
+ {'id': 12345678, 'name': 'John Doe'}]
 ```
