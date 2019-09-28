@@ -1,8 +1,8 @@
-from concurrent.futures import ThreadPoolExecutor
-from functools import partial
-
 import mechanicalsoup
 import requests
+
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 from collections import Counter
 from bs4 import BeautifulSoup
 
@@ -23,10 +23,12 @@ def _parse_time(time):
     weekday, time = time.split('.')
     time, duration = time.split('-')
 
-    return {'dia_da_semana': int(weekday) - 1,
-            'horario': time,
-            'duracao': int(duration),
-            'sala': room}
+    return {
+        'dia_da_semana': int(weekday) - 1,
+        'horario': time,
+        'duracao': int(duration),
+        'sala': room,
+    }
 
 
 def _parse_class(row):
@@ -60,7 +62,7 @@ def _course_from_classes(classes):
         'nome': first['nome'],
         'ementa': syllabus,
         'horas_aula': first['horas_aula'],
-        'turmas': {}
+        'turmas': {},
     }
 
     for c in classes:
@@ -83,9 +85,20 @@ class CAGR:
         self._browser = mechanicalsoup.StatefulBrowser()
         self._logged_in = False
 
+    def _students_from_forum(self, program_id):
+        url = 'http://forum.cagr.ufsc.br/listarMembros.jsf'
+        params = {'salaId': '100000' + program_id}
+        self._browser.open(url, params=params)
+        page = self._browser.get_current_page()
+        students = page.find_all('tr', class_='cor1_celula_forum')
+        students.extend(page.find_all('tr', class_='cor2_celula_forum'))
+        return students
+
     def login(self, username, password):
-        self._browser.open('https://sistemas.ufsc.br/login',
-                           params={'service': 'http://forum.cagr.ufsc.br/'})
+        self._browser.open(
+            'https://sistemas.ufsc.br/login',
+            params={'service': 'http://forum.cagr.ufsc.br/'},
+        )
 
         self._browser.select_form('#fm1')
         self._browser['username'] = username
@@ -97,40 +110,6 @@ class CAGR:
         else:
             raise InvalidCredentials()
 
-    def student(self, student_id):
-        if not self._logged_in:
-            raise NotLoggedIn()
-
-        url = 'http://forum.cagr.ufsc.br/mostrarPerfil.jsf'
-        params = {'usuarioTipo': 'Aluno', 'usuarioId': student_id}
-        self._browser.open(url, params=params)
-
-        page = self._browser.get_current_page()
-
-        columns = (page.find_all('td', class_=f'coluna{i+1}_listar_salas')
-                   for i in range(4))
-
-        rows = zip(*columns)
-        courses = [
-            {'nome': course_name.get_text(strip=True),
-             'id': course_id.get_text(strip=True),
-             'turma': class_id.get_text(strip=True),
-             'semestre': semester.get_text(strip=True)}
-            for course_name, course_id, class_id, semester in rows
-        ]
-
-        program = page.find('span', class_='texto_negrito_pequeno2')
-        program = program.get_text(strip=True).split(':')[-1].strip()
-
-        return {
-            'id': student_id,
-            'nome': page.find('strong').get_text(strip=True),
-            'curso': program.title(),
-            'disciplinas': [c for c in courses
-                            if '[MONITOR]' not in c['nome']
-                            and c['nome'] != '-' and c['id'] != '-']
-        }
-
     def program_id(self):
         if not self._logged_in:
             raise NotLoggedIn()
@@ -141,6 +120,45 @@ class CAGR:
 
         program_id = page.find_all('td', class_='aluno_info_col2')
         return str(program_id[4].get_text()[0:3])
+
+    def student(self, student_id):
+        if not self._logged_in:
+            raise NotLoggedIn()
+
+        url = 'http://forum.cagr.ufsc.br/mostrarPerfil.jsf'
+        params = {'usuarioTipo': 'Aluno', 'usuarioId': student_id}
+        self._browser.open(url, params=params)
+
+        page = self._browser.get_current_page()
+
+        columns = (
+            page.find_all('td', class_=f'coluna{i+1}_listar_salas') for i in range(4)
+        )
+
+        rows = zip(*columns)
+        courses = [
+            {
+                'nome': course_name.get_text(strip=True),
+                'id': course_id.get_text(strip=True),
+                'turma': class_id.get_text(strip=True),
+                'semestre': semester.get_text(strip=True),
+            }
+            for course_name, course_id, class_id, semester in rows
+        ]
+
+        program = page.find('span', class_='texto_negrito_pequeno2')
+        program = program.get_text(strip=True).split(':')[-1].strip()
+
+        return {
+            'id': student_id,
+            'nome': page.find('strong').get_text(strip=True),
+            'curso': program.title(),
+            'disciplinas': [
+                c
+                for c in courses
+                if '[MONITOR]' not in c['nome'] and c['nome'] != '-' and c['id'] != '-'
+            ],
+        }
 
     def course(self, course_id, semester):
         session = requests.Session()
@@ -161,8 +179,7 @@ class CAGR:
         soup = BeautifulSoup(response.text, 'html.parser')
 
         course = _course_from_classes(
-            _parse_class(row)
-            for row in soup.find_all('tr', class_='rich-table-row')
+            _parse_class(row) for row in soup.find_all('tr', class_='rich-table-row')
         )
 
         course.update(semestre=int(semester))
@@ -180,40 +197,22 @@ class CAGR:
         select = soup.find('select', id='formBusca:selectSemestre')
         return [option['value'] for option in select.find_all('option')]
 
-    def students_per_semester(self):
+    def students_per_semester(self, program_id):
         if not self._logged_in:
             raise NotLoggedIn()
 
-        url = 'https://cagr.sistemas.ufsc.br/modules/aluno/historicoEscolar/'
-        self._browser.open(url)
+        students = self._students_from_forum(program_id)
         page = self._browser.get_current_page()
-
-        program_id = page.find_all('td', class_='aluno_info_col2')
-        program_id = str(program_id[4].get_text()[0:3])
-
-        url = 'http://forum.cagr.ufsc.br/listarMembros.jsf'
-        params = {'salaId': '100000' + program_id}
-        self._browser.open(url, params=params)
-        page = self._browser.get_current_page()
-
-        students = page.find_all('tr', class_='cor1_celula_forum')
-        students.extend(page.find_all('tr', class_='cor2_celula_forum'))
 
         counter = Counter()
         for student in students:
-            semester = student.find(
-                'span',
-                class_='texto_pequeno3').get_text()
+            semester = student.find('span', class_='texto_pequeno3').get_text()
             semester = _get_semester_from_id(semester)
             counter[semester] += 1
 
-        program_student_count = {
-            'curso': page.find('td',
-                               class_='coluna5_listar_membros').get_text(),
-            'alunos_por_semestre': counter.most_common()
-        }
+        program_name = page.find('td', class_='coluna5_listar_membros').get_text()
 
-        return program_student_count
+        return {'curso': program_name, 'alunos_por_semestre': counter.most_common()}
 
     def students_from_course(self, program_id):
         url = 'http://forum.cagr.ufsc.br/listarMembros.jsf'
@@ -224,10 +223,51 @@ class CAGR:
         students = page.find_all('tr', class_='cor1_celula_forum')
         students.extend(page.find_all('tr', class_='cor2_celula_forum'))
 
-        return [{
-            'id': int(
-                student.find('td', class_='coluna2_listar_membros').get_text()
-            ),
-            'nome':
-                student.find('td', class_='coluna4_listar_membros').get_text(),
-        } for student in students]
+        return [
+            {
+                'id': int(
+                    student.find('td', class_='coluna2_listar_membros').get_text()
+                ),
+                'nome': student.find('td', class_='coluna4_listar_membros').get_text(),
+            }
+            for student in students
+        ]
+
+    def total_students(self, program_id):
+        if not self._logged_in:
+            raise NotLoggedIn()
+
+        students = self._students_from_forum(program_id)
+        page = self._browser.get_current_page()
+
+        program_name = page.find('td', class_='coluna5_listar_membros').get_text()
+
+        return {'curso': program_name, 'estudantes': len(students)}
+
+    def suspended_students(self, program_id):
+        if not self._logged_in:
+            raise NotLoggedIn()
+
+        students = self._students_from_forum(program_id)
+        page = self._browser.get_current_page()
+
+        program_name = page.find('td', class_='coluna5_listar_membros').get_text()
+
+        suspended = 0
+        for student in students:
+            profile_url = 'http://forum.cagr.ufsc.br/mostrarPerfil.jsf'
+            semester = student.find('span', class_='texto_pequeno3').get_text()
+            params = {'usuarioId': semester, 'usuarioTipo': 'Aluno'}
+            self._browser.open(profile_url, params=params)
+            page = self._browser.get_current_page()
+
+            status_text = page.find_all('span', class_='texto_pequeno1')[1]
+            if 'trancado' in str(status_text):
+                suspended += 1
+
+        return {
+            'curso': program_name,
+            'estudantes': len(students),
+            'alunos_trancados': suspended,
+            'porcentagem': (suspended / len(students)) * 100.0,
+        }
