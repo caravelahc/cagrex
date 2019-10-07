@@ -192,7 +192,6 @@ class CAGR:
             _parse_class(row) for row in soup.find_all("tr", class_="rich-table-row")
         )
 
-        course.update(semestre=int(semester))
         return course
 
     def courses(self, course_ids, semester):
