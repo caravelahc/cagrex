@@ -1,8 +1,9 @@
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
-from collections import Counter
 
 from bs4 import BeautifulSoup
+import bs4
 import mechanicalsoup
 import requests
 
@@ -18,6 +19,12 @@ class NotLoggedIn(Exception):
     pass
 
 
+
+
+def forum_program_id(program_id: int) -> str:
+    return f"100000{program_id}"
+
+
 def _parse_time(time):
     time, room = time.split(" / ")
     weekday, time = time.split(".")
@@ -31,7 +38,7 @@ def _parse_time(time):
     }
 
 
-def _parse_class(row):
+def _parse_class(row: bs4.Tag):
     cells = [c.get_text("\n", strip=True) for c in row.find_all("td")]
     return {
         "id_disciplina": cells[3],
@@ -85,13 +92,15 @@ class CAGR:
         self._browser = mechanicalsoup.StatefulBrowser()
         self._logged_in = False
 
-    def _students_from_forum(self, program_id):
+    def _students_from_forum(self, room_id):
         url = "http://forum.cagr.ufsc.br/listarMembros.jsf"
-        params = {"salaId": "100000" + program_id}
+        params = {"salaId": room_id}
         self._browser.open(url, params=params)
         page = self._browser.get_current_page()
+
         students = page.find_all("tr", class_="cor1_celula_forum")
         students.extend(page.find_all("tr", class_="cor2_celula_forum"))
+
         return students
 
     def _is_student_suspended(self, student):
@@ -210,7 +219,7 @@ class CAGR:
         if not self._logged_in:
             raise NotLoggedIn()
 
-        students = self._students_from_forum(program_id)
+        students = self._students_from_forum(forum_program_id(program_id))
         page = self._browser.get_current_page()
 
         counter = Counter()
