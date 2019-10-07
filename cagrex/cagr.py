@@ -1,10 +1,10 @@
-import mechanicalsoup
-import requests
-
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
 from collections import Counter
+
 from bs4 import BeautifulSoup
+import mechanicalsoup
+import requests
 
 
 CAGR_URL = "http://cagr.sistemas.ufsc.br/modules/comunidade/cadastroTurmas/"
