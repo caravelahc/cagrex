@@ -1,19 +1,18 @@
-"""Tests for course data extraction."""
+"""Tests for subject data extraction."""
 import pytest
 
 from datetime import time as Time
 
-from cagrex.cagr import _course_from_classes, Class, ScheduleTime, Weekday
+from cagrex.cagr import _subject_from_classes, Class, ScheduleTime, Weekday
 
 
-def test_course_from_classes():
+def test_subject_from_classes():
     classes = [
         Class(
             subject_id="XXX0000",
-            name="Test Course",
+            name="Test subject",
             instruction_hours=30,
             class_id="04208",
-            semester="20172",
             offered_vacancies=10,
             available_vacancies=3,
             orders_without_vacancies=0,
@@ -29,21 +28,21 @@ def test_course_from_classes():
         ),
     ]
 
-    course = _course_from_classes(classes)
+    subject = _subject_from_classes(classes)
 
-    print(course)
+    print(subject)
 
 
-# def test_course_retrieval():
-#     COURSE_ID, SEMESTER = "INE5417", "20172"
+# def test_subject_retrieval():
+#     SUBJECT_ID, SEMESTER = "INE5417", "20172"
 #     cagr = CAGR()
-#     course = cagr.course(COURSE_ID, SEMESTER)
+#     subject = cagr.subject(SUBJECT_ID, SEMESTER)
 #
-#     assert course["id"] == COURSE_ID
-#     assert course["nome"] == "Engenharia de Software I"
-#     assert course["horas_aula"] == 90
-#     assert course["ementa"].startswith("Análise de requisitos:")
-#     assert all(class_ in course["turmas"] for class_ in ["04208A", "04208B"])
+#     assert subject["id"] == SUBJECT_ID
+#     assert subject["nome"] == "Engenharia de Software I"
+#     assert subject["horas_aula"] == 90
+#     assert subject["ementa"].startswith("Análise de requisitos:")
+#     assert all(class_ in subject["turmas"] for class_ in ["04208A", "04208B"])
 #
 #
 # def test_student_not_logged_in():

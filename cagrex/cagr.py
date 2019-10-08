@@ -26,8 +26,8 @@ class NotLoggedIn(Exception):
 
 
 @dataclass
-class Course:
-    course_id: str
+class Subject:
+    subject_id: str
     name: str
     syllabus: str
     instruction_hours: int
@@ -37,16 +37,14 @@ class Course:
 
 @dataclass
 class Class:
-    subject_id: str
     class_id: str
-    name: str
     instruction_hours: int
     offered_vacancies: int
     available_vacancies: int
-    orders_without_vacancies: int
+    special_students: int
+    orders_without_vacancy: int
     teachers: List[str]
     schedule: List[ScheduleTime]
-    semester: Optional[str] = None
 
 
 class Weekday(IntEnum):
@@ -100,19 +98,19 @@ def _parse_class(row: bs4.Tag):
     )
 
 
-def _course_from_classes(classes: Iterable.Sequence[Class]):
+def _subject_from_classes(classes: Iterable.Sequence[Class]):
     classes = list(classes)
     first = classes[0]
-    course_id = first.subject_id.upper()
+    subject_id = first.subject_id.upper()
 
     response = requests.get(
-        CAGR_URL + f"ementaDisciplina.xhtml?codigoDisciplina={course_id}"
+        CAGR_URL + f"ementaDisciplina.xhtml?codigoDisciplina={subject_id}"
     )
     syllabus = BeautifulSoup(response.text, "html.parser").find("td")
     syllabus = syllabus.get_text("\n", strip=True)
 
-    course = Course(
-        course_id=course_id,
+    subject = Subject(
+        subject_id=subject_id,
         name=first.name,
         syllabus=syllabus,
         semester=first.semester,
@@ -120,7 +118,7 @@ def _course_from_classes(classes: Iterable.Sequence[Class]):
         classes=classes,
     )
 
-    return course
+    return subject
 
 
 def _get_semester_from_id(student_id):
@@ -196,14 +194,14 @@ class CAGR:
         )
 
         rows = zip(*columns)
-        courses = [
-            Course(
-                course_id=course_id.get_text(strip=True),
+        subjects = [
+            Subject(
+                subject_id=subject_id.get_text(strip=True),
                 class_id=class_id.get_text(strip=True),
-                name=course_name.get_text(strip=True),
+                name=subject_name.get_text(strip=True),
                 semester=semester.get_text(strip=True),
             )
-            for course_name, course_id, class_id, semester in rows
+            for subject_name, subject_id, class_id, semester in rows
         ]
 
         program = page.find("span", class_="texto_negrito_pequeno2")
@@ -215,12 +213,12 @@ class CAGR:
             "curso": program.title(),
             "disciplinas": [
                 c
-                for c in courses
-                if "[MONITOR]" not in c.name and c.name != "-" and c.course_id != "-"
+                for c in subjects
+                if "[MONITOR]" not in c.name and c.name != "-" and c.subject_id != "-"
             ],
         }
 
-    def course(self, course_id, semester):
+    def subject(self, subject_id, semester):
         session = requests.Session()
         response = session.get(CAGR_URL)
         soup = BeautifulSoup(response.text, "html.parser")
@@ -232,22 +230,22 @@ class CAGR:
             "javax.faces.ViewState": "j_id1",
             submit_id: submit_id,
             "formBusca:selectSemestre": semester,
-            "formBusca:codigoDisciplina": course_id,
+            "formBusca:codigoDisciplina": subject_id,
         }
 
         response = session.post(CAGR_URL, data=form_data)
         soup = BeautifulSoup(response.text, "html.parser")
 
-        course = _course_from_classes(
+        subject = _subject_from_classes(
             _parse_class(row) for row in soup.find_all("tr", class_="rich-table-row")
         )
 
-        return course
+        return subject
 
-    def courses(self, course_ids, semester):
+    def subjects(self, subject_ids, semester):
         with ThreadPoolExecutor() as executor:
-            func = partial(self.course, semester=semester)
-            return executor.map(func, course_ids)
+            func = partial(self.subject, semester=semester)
+            return executor.map(func, subject_ids)
 
     def semesters(self):
         html = requests.get(CAGR_URL).text
@@ -273,7 +271,7 @@ class CAGR:
 
         return {"curso": program_name, "alunos_por_semestre": counter.most_common()}
 
-    def students_from_course(self, program_id):
+    def students_from_subject(self, program_id):
         url = "http://forum.cagr.ufsc.br/listarMembros.jsf"
         params = {"salaId": "100000" + program_id}
         self._browser.open(url, params=params)
