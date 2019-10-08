@@ -82,7 +82,6 @@ def _parse_time(time: str) -> ScheduleTime:
 
 
 def _make_class(data: Dict[str, str]) -> Class:
-    print(f'data: {data}')
     return Class(
         class_id=data["turma"],
         offered_vacancies=int(data["vagas ofertadas"]),
@@ -93,16 +92,6 @@ def _make_class(data: Dict[str, str]) -> Class:
         schedule=[_parse_time(time) for time in data["horários"].splitlines()]
     )
     cells = [c.get_text("\n", strip=True) for c in row.find_all("td")]
-    return Class(
-        class_id=cells[4],
-        name=cells[5],
-        instruction_hours=int(cells[6]),
-        offered_vacancies=int(cells[7]),
-        available_vacancies=int(cells[10].replace("LOTADA", "0")),
-        orders_without_vacancies=int(cells[11] or "0"),
-        teachers=cells[-1].splitlines(),
-        schedule=[_parse_time(time) for time in cells[-2].splitlines()],
-    )
 
 
 def _table_to_dicts(table: bs4.Tag) -> List[Dict[str, str]]:
@@ -131,7 +120,7 @@ def _load_name_and_syllabus(subject_id: str) -> Tuple[str, str]:
         CAGR_URL + f"ementaDisciplina.xhtml?codigoDisciplina={subject_id}"
     )
     page_content = BeautifulSoup(response.text, "html.parser")
-    name = page_content.find("span").get_text("\n", strip=True)
+    name = page_content.find("span").get_text("\n", strip=True).split(" - ")[1]
     syllabus = page_content.find("td").get_text("\n", strip=True)
 
     return name, syllabus
@@ -251,15 +240,18 @@ class CAGR:
 
         response = session.post(CAGR_URL, data=form_data)
         soup = BeautifulSoup(response.text, "html.parser")
+        table = soup.find("table")
 
         name, syllabus = _load_name_and_syllabus(subject_id)
+
+        data = _table_to_dicts(table)
 
         subject = Subject(
             subject_id=subject_id,
             name=name,
             syllabus=syllabus,
-            instruction_hours=instruction_hours,
-            classes=_table_to_classlist(soup.find('table')),
+            instruction_hours=int(data[0]["horas aula"]),
+            classes=[_make_class(_dict) for _dict in _table_to_dicts(table)],
         )
 
         return subject
