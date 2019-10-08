@@ -31,18 +31,16 @@ class Subject:
     name: str
     syllabus: str
     instruction_hours: int
-    semester: Optional[str] = None
     classes: Optional[List[str]] = None
 
 
 @dataclass
 class Class:
     class_id: str
-    instruction_hours: int
     offered_vacancies: int
     available_vacancies: int
-    special_students: int
     orders_without_vacancy: int
+    special_students: int
     teachers: List[str]
     schedule: List[ScheduleTime]
 
@@ -83,10 +81,19 @@ def _parse_time(time: str) -> ScheduleTime:
     )
 
 
-def _parse_class(row: bs4.Tag):
+def _make_class(data: Dict[str, str]) -> Class:
+    print(f'data: {data}')
+    return Class(
+        class_id=data["turma"],
+        offered_vacancies=int(data["vagas ofertadas"]),
+        available_vacancies=int(data["saldo vagas"].replace("LOTADA", "0")),
+        orders_without_vacancy=int(data["pedidos sem vaga"] or "0"),
+        special_students=int(data["alunos especiais"]),
+        teachers=data["professor"].splitlines(),
+        schedule=[_parse_time(time) for time in data["horários"].splitlines()]
+    )
     cells = [c.get_text("\n", strip=True) for c in row.find_all("td")]
     return Class(
-        subject_id=cells[3],
         class_id=cells[4],
         name=cells[5],
         instruction_hours=int(cells[6]),
@@ -98,27 +105,36 @@ def _parse_class(row: bs4.Tag):
     )
 
 
-def _subject_from_classes(classes: Iterable.Sequence[Class]):
-    classes = list(classes)
-    first = classes[0]
-    subject_id = first.subject_id.upper()
+def _table_to_dicts(table: bs4.Tag) -> List[Dict[str, str]]:
+    headers = [
+        th.get_text(" ", strip=True).lower()
+        for th in table.find_all("th", class_="rich-table-subheadercell")
+    ]
+    rows = [
+        [c.get_text("\n", strip=True) for c in row.find_all("td")]
+        for row in table.find_all("tr", class_="rich-table-row")
+    ]
+    dicts = [
+        {header: value for header, value in zip(headers, row)}
+        for row in rows
+    ]
 
+    return dicts
+
+
+def _table_to_classlist(table: bs4.Tag) -> List[Class]:
+    return [_make_class(_dict) for _dict in _table_to_dicts(table)]
+
+
+def _load_name_and_syllabus(subject_id: str) -> Tuple[str, str]:
     response = requests.get(
         CAGR_URL + f"ementaDisciplina.xhtml?codigoDisciplina={subject_id}"
     )
-    syllabus = BeautifulSoup(response.text, "html.parser").find("td")
-    syllabus = syllabus.get_text("\n", strip=True)
+    page_content = BeautifulSoup(response.text, "html.parser")
+    name = page_content.find("span").get_text("\n", strip=True)
+    syllabus = page_content.find("td").get_text("\n", strip=True)
 
-    subject = Subject(
-        subject_id=subject_id,
-        name=first.name,
-        syllabus=syllabus,
-        semester=first.semester,
-        instruction_hours=first.instruction_hours,
-        classes=classes,
-    )
-
-    return subject
+    return name, syllabus
 
 
 def _get_semester_from_id(student_id):
@@ -218,7 +234,7 @@ class CAGR:
             ],
         }
 
-    def subject(self, subject_id, semester):
+    def subject(self, subject_id: str, semester: str):
         session = requests.Session()
         response = session.get(CAGR_URL)
         soup = BeautifulSoup(response.text, "html.parser")
@@ -236,8 +252,14 @@ class CAGR:
         response = session.post(CAGR_URL, data=form_data)
         soup = BeautifulSoup(response.text, "html.parser")
 
-        subject = _subject_from_classes(
-            _parse_class(row) for row in soup.find_all("tr", class_="rich-table-row")
+        name, syllabus = _load_name_and_syllabus(subject_id)
+
+        subject = Subject(
+            subject_id=subject_id,
+            name=name,
+            syllabus=syllabus,
+            instruction_hours=instruction_hours,
+            classes=_table_to_classlist(soup.find('table')),
         )
 
         return subject
