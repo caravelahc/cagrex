@@ -1,6 +1,12 @@
+from __future__ import annotations
+
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
+from datetime import date as Date, time as Time
+from enum import auto, IntEnum
 from functools import partial
+from typing import Iterable, List, Optional
 
 from bs4 import BeautifulSoup
 import bs4
@@ -19,44 +25,85 @@ class NotLoggedIn(Exception):
     pass
 
 
+@dataclass
+class Course:
+    course_id: str
+    name: str
+    syllabus: str
+    instruction_hours: int
+    semester: Optional[str] = None
+    classes: Optional[List[str]] = None
+
+
+@dataclass
+class Class:
+    subject_id: str
+    class_id: str
+    name: str
+    instruction_hours: int
+    offered_vacancies: int
+    available_vacancies: int
+    orders_without_vacancies: int
+    teachers: List[str]
+    schedule: List[ScheduleTime]
+    semester: Optional[str] = None
+
+
+class Weekday(IntEnum):
+    SUNDAY = auto()
+    MONDAY = auto()
+    TUESDAY = auto()
+    WEDNESDAY = auto()
+    THURSDAY = auto()
+    FRIDAY = auto()
+    SATURDAY = auto()
+
+
+@dataclass
+class ScheduleTime:
+    weekday: Weekday
+    time: Time
+    duration: int
+    room: str
 
 
 def forum_program_id(program_id: int) -> str:
     return f"100000{program_id}"
 
 
-def _parse_time(time):
+def _parse_time(time: str) -> ScheduleTime:
     time, room = time.split(" / ")
     weekday, time = time.split(".")
     time, duration = time.split("-")
+    hour, minute = time[:2], time[2:]
 
-    return {
-        "dia_da_semana": int(weekday) - 1,
-        "horario": time,
-        "duracao": int(duration),
-        "sala": room,
-    }
+    return ScheduleTime(
+        weekday=Weekday(int(weekday)),
+        time=Time(int(hour), int(minute)),
+        duration=int(duration),
+        room=room,
+    )
 
 
 def _parse_class(row: bs4.Tag):
     cells = [c.get_text("\n", strip=True) for c in row.find_all("td")]
-    return {
-        "id_disciplina": cells[3],
-        "nome": cells[5],
-        "horas_aula": int(cells[6]),
-        "id_turma": cells[4],
-        "vagas_ofertadas": int(cells[7]),
-        "vagas_disponiveis": int(cells[10].replace("LOTADA", "0")),
-        "pedidos_sem_vaga": int(cells[11] or "0"),
-        "professores": cells[-1].splitlines(),
-        "horarios": [_parse_time(time) for time in cells[-2].splitlines()],
-    }
+    return Class(
+        subject_id=cells[3],
+        class_id=cells[4],
+        name=cells[5],
+        instruction_hours=int(cells[6]),
+        offered_vacancies=int(cells[7]),
+        available_vacancies=int(cells[10].replace("LOTADA", "0")),
+        orders_without_vacancies=int(cells[11] or "0"),
+        teachers=cells[-1].splitlines(),
+        schedule=[_parse_time(time) for time in cells[-2].splitlines()],
+    )
 
 
-def _course_from_classes(classes):
+def _course_from_classes(classes: Iterable.Sequence[Class]):
     classes = list(classes)
     first = classes[0]
-    course_id = first["id_disciplina"].upper()
+    course_id = first.subject_id.upper()
 
     response = requests.get(
         CAGR_URL + f"ementaDisciplina.xhtml?codigoDisciplina={course_id}"
@@ -64,20 +111,14 @@ def _course_from_classes(classes):
     syllabus = BeautifulSoup(response.text, "html.parser").find("td")
     syllabus = syllabus.get_text("\n", strip=True)
 
-    course = {
-        "id": course_id,
-        "nome": first["nome"],
-        "ementa": syllabus,
-        "horas_aula": first["horas_aula"],
-        "turmas": {},
-    }
-
-    for c in classes:
-        del c["nome"]
-        del c["id_disciplina"]
-        del c["horas_aula"]
-        class_id = c.pop("id_turma")
-        course["turmas"][class_id] = c
+    course = Course(
+        course_id=course_id,
+        name=first.name,
+        syllabus=syllabus,
+        semester=first.semester,
+        instruction_hours=first.instruction_hours,
+        classes=classes,
+    )
 
     return course
 
@@ -156,12 +197,12 @@ class CAGR:
 
         rows = zip(*columns)
         courses = [
-            {
-                "nome": course_name.get_text(strip=True),
-                "id": course_id.get_text(strip=True),
-                "turma": class_id.get_text(strip=True),
-                "semestre": semester.get_text(strip=True),
-            }
+            Course(
+                course_id=course_id.get_text(strip=True),
+                class_id=class_id.get_text(strip=True),
+                name=course_name.get_text(strip=True),
+                semester=semester.get_text(strip=True),
+            )
             for course_name, course_id, class_id, semester in rows
         ]
 
@@ -175,7 +216,7 @@ class CAGR:
             "disciplinas": [
                 c
                 for c in courses
-                if "[MONITOR]" not in c["nome"] and c["nome"] != "-" and c["id"] != "-"
+                if "[MONITOR]" not in c.name and c.name != "-" and c.course_id != "-"
             ],
         }
 
