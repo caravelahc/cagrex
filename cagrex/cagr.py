@@ -63,6 +63,12 @@ class ScheduleTime:
     room: str
 
 
+@dataclass
+class Student:
+    student_id: str
+    name: str
+
+
 def forum_program_id(program_id: int) -> str:
     return f"100000{program_id}"
 
@@ -136,7 +142,7 @@ class CAGR:
         self._browser = mechanicalsoup.StatefulBrowser()
         self._logged_in = False
 
-    def _students_from_forum(self, room_id):
+    def _memberlist_html_from_forum(self, room_id):
         url = "http://forum.cagr.ufsc.br/listarMembros.jsf"
         params = {"salaId": room_id}
         self._browser.open(url, params=params)
@@ -272,7 +278,7 @@ class CAGR:
         if not self._logged_in:
             raise NotLoggedIn()
 
-        students = self._students_from_forum(forum_program_id(program_id))
+        students = self._memberlist_html_from_forum(forum_program_id(program_id))
         page = self._browser.get_current_page()
 
         counter = Counter()
@@ -304,11 +310,44 @@ class CAGR:
             for student in students
         ]
 
+    def students_from_class(
+        self,
+        subject_id: str,
+        semester: str,
+        class_id: str
+    ) -> List[Student]:
+        url = "http://forum.cagr.ufsc.br/formularioBusca.jsf"
+        self._browser.open(url)
+        form = self._browser.select_form("form#buscaSala")
+
+        params = {
+            "buscaSala:salaCodigo": subject_id,
+            "buscaSala:salaTurma": class_id,
+            "buscaSala:salaSemestre": semester,
+            "buscaSala:j_id_jsp_632900747_29": "disciplinas",
+        }
+
+        for param, value in params.items():
+            self._browser[param] = value
+
+        soup = BeautifulSoup(self._browser.submit_selected().text, "html.parser")
+        td = soup.find("td", attrs={"class": "coluna1_listar_salas"})
+        _, room_id = td.find("a")["href"].split("salaId=")
+
+        memberlist_html = self._memberlist_html_from_forum(room_id)
+        students = []
+        for row in memberlist_html:
+            student_id = row.find("td", class_="coluna2_listar_membros").get_text()
+            student_name = row.find("td", class_="coluna3_listar_membros").get_text()
+            students.append(Student(student_id, student_name))
+
+        return students
+
     def total_students(self, program_id):
         if not self._logged_in:
             raise NotLoggedIn()
 
-        students = self._students_from_forum(program_id)
+        students = self._memberlist_html_from_forum(program_id)
         page = self._browser.get_current_page()
 
         program_name = page.find("td", class_="coluna5_listar_membros").get_text()
@@ -319,7 +358,7 @@ class CAGR:
         if not self._logged_in:
             raise NotLoggedIn()
 
-        students = self._students_from_forum(program_id)
+        students = self._memberlist_html_from_forum(program_id)
         total_students = len(students)
         page = self._browser.get_current_page()
 
