@@ -313,8 +313,8 @@ class CAGR:
     def students_from_class(
         self,
         subject_id: str,
+        class_id: str,
         semester: str,
-        class_id: str
     ) -> List[Student]:
         url = "http://forum.cagr.ufsc.br/formularioBusca.jsf"
         self._browser.open(url)
@@ -337,8 +337,12 @@ class CAGR:
         memberlist_html = self._memberlist_html_from_forum(room_id)
         students = []
         for row in memberlist_html:
+            student_type = row.find("td", class_="coluna3_listar_membros").get_text()
+            if student_type != "Aluno":
+                continue
+
             student_id = row.find("td", class_="coluna2_listar_membros").get_text()
-            student_name = row.find("td", class_="coluna3_listar_membros").get_text()
+            student_name = row.find("td", class_="coluna4_listar_membros").get_text()
             students.append(Student(student_id, student_name))
 
         return students
