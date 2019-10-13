@@ -1,10 +1,17 @@
+from __future__ import annotations
+
+from collections import Counter
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
+from datetime import date as Date, time as Time
+from enum import auto, IntEnum
+from functools import partial
+from typing import Iterable, List, Optional
+
+from bs4 import BeautifulSoup
+import bs4
 import mechanicalsoup
 import requests
-
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from functools import partial
-from collections import Counter
-from bs4 import BeautifulSoup
 
 
 CAGR_URL = "http://cagr.sistemas.ufsc.br/modules/comunidade/cadastroTurmas/"
@@ -18,61 +25,111 @@ class NotLoggedIn(Exception):
     pass
 
 
-def _parse_time(time):
+@dataclass
+class Subject:
+    subject_id: str
+    name: str
+    syllabus: str
+    instruction_hours: int
+    classes: Optional[List[str]] = None
+
+
+@dataclass
+class Class:
+    class_id: str
+    offered_vacancies: int
+    available_vacancies: int
+    orders_without_vacancy: int
+    special_students: int
+    teachers: List[str]
+    schedule: List[ScheduleTime]
+
+
+class Weekday(IntEnum):
+    SUNDAY = auto()
+    MONDAY = auto()
+    TUESDAY = auto()
+    WEDNESDAY = auto()
+    THURSDAY = auto()
+    FRIDAY = auto()
+    SATURDAY = auto()
+
+
+@dataclass
+class ScheduleTime:
+    weekday: Weekday
+    time: Time
+    duration: int
+    room: str
+
+
+@dataclass
+class Student:
+    student_id: str
+    name: str
+
+
+def forum_program_id(program_id: int) -> str:
+    return f"100000{program_id}"
+
+
+def _parse_time(time: str) -> ScheduleTime:
     time, room = time.split(" / ")
     weekday, time = time.split(".")
     time, duration = time.split("-")
+    hour, minute = time[:2], time[2:]
 
-    return {
-        "dia_da_semana": int(weekday) - 1,
-        "horario": time,
-        "duracao": int(duration),
-        "sala": room,
-    }
-
-
-def _parse_class(row):
-    cells = [c.get_text("\n", strip=True) for c in row.find_all("td")]
-    return {
-        "id_disciplina": cells[3],
-        "nome": cells[5],
-        "horas_aula": int(cells[6]),
-        "id_turma": cells[4],
-        "vagas_ofertadas": int(cells[7]),
-        "vagas_disponiveis": int(cells[10].replace("LOTADA", "0")),
-        "pedidos_sem_vaga": int(cells[11] or "0"),
-        "professores": cells[-1].splitlines(),
-        "horarios": [_parse_time(time) for time in cells[-2].splitlines()],
-    }
-
-
-def _course_from_classes(classes):
-    classes = list(classes)
-    first = classes[0]
-    course_id = first["id_disciplina"].upper()
-
-    response = requests.get(
-        CAGR_URL + f"ementaDisciplina.xhtml?codigoDisciplina={course_id}"
+    return ScheduleTime(
+        weekday=Weekday(int(weekday)),
+        time=Time(int(hour), int(minute)),
+        duration=int(duration),
+        room=room,
     )
-    syllabus = BeautifulSoup(response.text, "html.parser").find("td")
-    syllabus = syllabus.get_text("\n", strip=True)
 
-    course = {
-        "id": course_id,
-        "nome": first["nome"],
-        "ementa": syllabus,
-        "horas_aula": first["horas_aula"],
-        "turmas": {},
-    }
 
-    for c in classes:
-        del c["nome"]
-        del c["id_disciplina"]
-        del c["horas_aula"]
-        class_id = c.pop("id_turma")
-        course["turmas"][class_id] = c
+def _make_class(data: Dict[str, str]) -> Class:
+    return Class(
+        class_id=data["turma"],
+        offered_vacancies=int(data["vagas ofertadas"]),
+        available_vacancies=int(data["saldo vagas"].replace("LOTADA", "0")),
+        orders_without_vacancy=int(data["pedidos sem vaga"] or "0"),
+        special_students=int(data["alunos especiais"]),
+        teachers=data["professor"].splitlines(),
+        schedule=[_parse_time(time) for time in data["horários"].splitlines()]
+    )
+    cells = [c.get_text("\n", strip=True) for c in row.find_all("td")]
 
-    return course
+
+def _table_to_dicts(table: bs4.Tag) -> List[Dict[str, str]]:
+    headers = [
+        th.get_text(" ", strip=True).lower()
+        for th in table.find_all("th", class_="rich-table-subheadercell")
+    ]
+    rows = [
+        [c.get_text("\n", strip=True) for c in row.find_all("td")]
+        for row in table.find_all("tr", class_="rich-table-row")
+    ]
+    dicts = [
+        {header: value for header, value in zip(headers, row)}
+        for row in rows
+    ]
+
+    return dicts
+
+
+def _table_to_classlist(table: bs4.Tag) -> List[Class]:
+    return [_make_class(_dict) for _dict in _table_to_dicts(table)]
+
+
+def _load_name_and_syllabus(subject_id: str) -> Tuple[str, str]:
+    response = requests.get(
+        CAGR_URL + f"ementaDisciplina.xhtml?codigoDisciplina={subject_id}"
+    )
+    page_content = BeautifulSoup(response.text, "html.parser")
+    name = page_content.find("span").get_text("\n", strip=True).split(" - ")[1]
+    syllabus = page_content.find("td").get_text("\n", strip=True)
+
+    return name, syllabus
 
 
 def _get_semester_from_id(student_id):
@@ -85,13 +142,15 @@ class CAGR:
         self._browser = mechanicalsoup.StatefulBrowser()
         self._logged_in = False
 
-    def _students_from_forum(self, program_id):
+    def _memberlist_html_from_forum(self, room_id):
         url = "http://forum.cagr.ufsc.br/listarMembros.jsf"
-        params = {"salaId": "100000" + program_id}
+        params = {"salaId": room_id}
         self._browser.open(url, params=params)
         page = self._browser.get_current_page()
+
         students = page.find_all("tr", class_="cor1_celula_forum")
         students.extend(page.find_all("tr", class_="cor2_celula_forum"))
+
         return students
 
     def _is_student_suspended(self, student):
@@ -146,14 +205,14 @@ class CAGR:
         )
 
         rows = zip(*columns)
-        courses = [
-            {
-                "nome": course_name.get_text(strip=True),
-                "id": course_id.get_text(strip=True),
-                "turma": class_id.get_text(strip=True),
-                "semestre": semester.get_text(strip=True),
-            }
-            for course_name, course_id, class_id, semester in rows
+        subjects = [
+            Subject(
+                subject_id=subject_id.get_text(strip=True),
+                class_id=class_id.get_text(strip=True),
+                name=subject_name.get_text(strip=True),
+                semester=semester.get_text(strip=True),
+            )
+            for subject_name, subject_id, class_id, semester in rows
         ]
 
         program = page.find("span", class_="texto_negrito_pequeno2")
@@ -165,12 +224,12 @@ class CAGR:
             "curso": program.title(),
             "disciplinas": [
                 c
-                for c in courses
-                if "[MONITOR]" not in c["nome"] and c["nome"] != "-" and c["id"] != "-"
+                for c in subjects
+                if "[MONITOR]" not in c.name and c.name != "-" and c.subject_id != "-"
             ],
         }
 
-    def course(self, course_id, semester):
+    def subject(self, subject_id: str, semester: str):
         session = requests.Session()
         response = session.get(CAGR_URL)
         soup = BeautifulSoup(response.text, "html.parser")
@@ -182,23 +241,31 @@ class CAGR:
             "javax.faces.ViewState": "j_id1",
             submit_id: submit_id,
             "formBusca:selectSemestre": semester,
-            "formBusca:codigoDisciplina": course_id,
+            "formBusca:codigoDisciplina": subject_id,
         }
 
         response = session.post(CAGR_URL, data=form_data)
         soup = BeautifulSoup(response.text, "html.parser")
+        table = soup.find("table")
 
-        course = _course_from_classes(
-            _parse_class(row) for row in soup.find_all("tr", class_="rich-table-row")
+        name, syllabus = _load_name_and_syllabus(subject_id)
+
+        data = _table_to_dicts(table)
+
+        subject = Subject(
+            subject_id=subject_id,
+            name=name,
+            syllabus=syllabus,
+            instruction_hours=int(data[0]["horas aula"]),
+            classes=[_make_class(_dict) for _dict in _table_to_dicts(table)],
         )
 
-        course.update(semestre=int(semester))
-        return course
+        return subject
 
-    def courses(self, course_ids, semester):
+    def subjects(self, subject_ids, semester):
         with ThreadPoolExecutor() as executor:
-            func = partial(self.course, semester=semester)
-            return executor.map(func, course_ids)
+            func = partial(self.subject, semester=semester)
+            return executor.map(func, subject_ids)
 
     def semesters(self):
         html = requests.get(CAGR_URL).text
@@ -211,7 +278,7 @@ class CAGR:
         if not self._logged_in:
             raise NotLoggedIn()
 
-        students = self._students_from_forum(program_id)
+        students = self._memberlist_html_from_forum(forum_program_id(program_id))
         page = self._browser.get_current_page()
 
         counter = Counter()
@@ -224,7 +291,7 @@ class CAGR:
 
         return {"curso": program_name, "alunos_por_semestre": counter.most_common()}
 
-    def students_from_course(self, program_id):
+    def students_from_subject(self, program_id):
         url = "http://forum.cagr.ufsc.br/listarMembros.jsf"
         params = {"salaId": "100000" + program_id}
         self._browser.open(url, params=params)
@@ -243,11 +310,48 @@ class CAGR:
             for student in students
         ]
 
+    def students_from_class(
+        self,
+        subject_id: str,
+        class_id: str,
+        semester: str,
+    ) -> List[Student]:
+        url = "http://forum.cagr.ufsc.br/formularioBusca.jsf"
+        self._browser.open(url)
+        form = self._browser.select_form("form#buscaSala")
+
+        params = {
+            "buscaSala:salaCodigo": subject_id,
+            "buscaSala:salaTurma": class_id,
+            "buscaSala:salaSemestre": semester,
+            "buscaSala:j_id_jsp_632900747_29": "disciplinas",
+        }
+
+        for param, value in params.items():
+            self._browser[param] = value
+
+        soup = BeautifulSoup(self._browser.submit_selected().text, "html.parser")
+        td = soup.find("td", attrs={"class": "coluna1_listar_salas"})
+        _, room_id = td.find("a")["href"].split("salaId=")
+
+        memberlist_html = self._memberlist_html_from_forum(room_id)
+        students = []
+        for row in memberlist_html:
+            student_type = row.find("td", class_="coluna3_listar_membros").get_text()
+            if student_type != "Aluno":
+                continue
+
+            student_id = row.find("td", class_="coluna2_listar_membros").get_text()
+            student_name = row.find("td", class_="coluna4_listar_membros").get_text()
+            students.append(Student(student_id, student_name))
+
+        return students
+
     def total_students(self, program_id):
         if not self._logged_in:
             raise NotLoggedIn()
 
-        students = self._students_from_forum(program_id)
+        students = self._memberlist_html_from_forum(program_id)
         page = self._browser.get_current_page()
 
         program_name = page.find("td", class_="coluna5_listar_membros").get_text()
@@ -258,7 +362,7 @@ class CAGR:
         if not self._logged_in:
             raise NotLoggedIn()
 
-        students = self._students_from_forum(program_id)
+        students = self._memberlist_html_from_forum(program_id)
         total_students = len(students)
         page = self._browser.get_current_page()
 
