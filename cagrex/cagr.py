@@ -67,6 +67,7 @@ class Weekday(IntEnum):
 class Student:
     student_id: str
     name: str
+    course: Optional[str] = None
 
 
 def forum_program_id(program_id: int) -> str:
@@ -206,11 +207,12 @@ class CAGR:
 
         rows = zip(*columns)
         subjects = [
-            Subject(
-                subject_id=subject_id.get_text(strip=True),
-                name=subject_name.get_text(strip=True),
-                semester=semester.get_text(strip=True),
-            )
+            {
+                'código': subject_id.get_text(strip=True),
+                'nome': subject_name.get_text(strip=True),
+                'turma': class_id.get_text(strip=True),
+                'semestre': semester.get_text(strip=True),
+            }
             for subject_name, subject_id, class_id, semester in rows
         ]
 
@@ -224,7 +226,7 @@ class CAGR:
             "disciplinas": [
                 c
                 for c in subjects
-                if "[MONITOR]" not in c.name and c.name != "-" and c.subject_id != "-"
+                if "[MONITOR]" not in c['nome'] and c['nome'] != "-" and c['código'] != "-"
             ],
         }
 
