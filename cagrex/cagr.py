@@ -35,6 +35,14 @@ class Subject:
 
 
 @dataclass
+class ScheduleTime:
+    weekday: Weekday
+    time: Time
+    duration: int
+    room: str
+
+
+@dataclass
 class Class:
     class_id: str
     offered_vacancies: int
@@ -53,14 +61,6 @@ class Weekday(IntEnum):
     THURSDAY = auto()
     FRIDAY = auto()
     SATURDAY = auto()
-
-
-@dataclass
-class ScheduleTime:
-    weekday: Weekday
-    time: Time
-    duration: int
-    room: str
 
 
 @dataclass
@@ -208,7 +208,6 @@ class CAGR:
         subjects = [
             Subject(
                 subject_id=subject_id.get_text(strip=True),
-                class_id=class_id.get_text(strip=True),
                 name=subject_name.get_text(strip=True),
                 semester=semester.get_text(strip=True),
             )
