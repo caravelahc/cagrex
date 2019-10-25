@@ -3,16 +3,15 @@ from __future__ import annotations
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from datetime import date as Date, time as Time
+from datetime import time
 from enum import auto, IntEnum
 from functools import partial
-from typing import Iterable, List, Optional
+from typing import List, Optional, Dict, Tuple
 
-from bs4 import BeautifulSoup
 import bs4
 import mechanicalsoup
 import requests
-
+from bs4 import BeautifulSoup
 
 CAGR_URL = "http://cagr.sistemas.ufsc.br/modules/comunidade/cadastroTurmas/"
 
@@ -58,30 +57,39 @@ class Weekday(IntEnum):
 @dataclass
 class ScheduleTime:
     weekday: Weekday
-    time: Time
+    time: time
     duration: int
     room: str
+
+
+@dataclass
+class StudentClass:
+    name: str
+    subject_id: str
+    class_id: str
 
 
 @dataclass
 class Student:
     student_id: str
     name: str
+    program: str
+    classes: List[StudentClass]
 
 
 def forum_program_id(program_id: int) -> str:
     return f"100000{program_id}"
 
 
-def _parse_time(time: str) -> ScheduleTime:
-    time, room = time.split(" / ")
-    weekday, time = time.split(".")
-    time, duration = time.split("-")
-    hour, minute = time[:2], time[2:]
+def _parse_time(schedule_time: str) -> ScheduleTime:
+    _time, room = schedule_time.split(" / ")
+    weekday, _time = _time.split(".")
+    _time, duration = _time.split("-")
+    hour, minute = _time[:2], _time[2:]
 
     return ScheduleTime(
         weekday=Weekday(int(weekday)),
-        time=Time(int(hour), int(minute)),
+        time=time(int(hour), int(minute)),
         duration=int(duration),
         room=room,
     )
@@ -99,9 +107,8 @@ def _make_class(data: Dict[str, str]) -> Class:
         orders_without_vacancy=int(data["pedidos sem vaga"] or "0"),
         special_students=int(data["alunos especiais"]),
         teachers=data["professor"].splitlines(),
-        schedule=[_parse_time(time) for time in data["horários"].splitlines()]
+        schedule=[_parse_time(t) for t in data["horários"].splitlines()]
     )
-    cells = [c.get_text("\n", strip=True) for c in row.find_all("td")]
 
 
 def _table_to_dicts(table: bs4.Tag) -> List[Dict[str, str]]:
@@ -204,33 +211,28 @@ class CAGR:
         page = self._browser.get_current_page()
 
         columns = (
-            page.find_all("td", class_=f"coluna{i+1}_listar_salas") for i in range(4)
+            page.find_all("td", class_=f"coluna{i + 1}_listar_salas") for i in range(4)
         )
 
         rows = zip(*columns)
-        subjects = [
-            Subject(
+        classes = [
+            StudentClass(
                 subject_id=subject_id.get_text(strip=True),
                 class_id=class_id.get_text(strip=True),
                 name=subject_name.get_text(strip=True),
-                semester=semester.get_text(strip=True),
             )
-            for subject_name, subject_id, class_id, semester in rows
+            for subject_name, subject_id, class_id, _ in rows
         ]
 
         program = page.find("span", class_="texto_negrito_pequeno2")
         program = program.get_text(strip=True).split(":")[-1].strip()
 
-        return {
-            "id": student_id,
-            "nome": page.find("strong").get_text(strip=True),
-            "curso": program.title(),
-            "disciplinas": [
-                c
-                for c in subjects
-                if "[MONITOR]" not in c.name and c.name != "-" and c.subject_id != "-"
-            ],
-        }
+        return Student(
+            student_id=student_id,
+            name=page.find("strong").get_text(strip=True),
+            program=program,
+            classes=[c for c in classes if c.subject_id != "-" and c.class_id != "-"],
+        )
 
     def subject(self, subject_id: str, semester: str):
         session = requests.Session()
@@ -313,10 +315,10 @@ class CAGR:
         ]
 
     def students_from_class(
-        self,
-        subject_id: str,
-        class_id: str,
-        semester: str,
+            self,
+            subject_id: str,
+            class_id: str,
+            semester: str,
     ) -> List[Student]:
         url = "http://forum.cagr.ufsc.br/formularioBusca.jsf"
         self._browser.open(url)

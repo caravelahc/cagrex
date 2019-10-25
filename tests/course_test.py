@@ -1,29 +1,33 @@
 """Tests for subject data extraction."""
-from datetime import time as Time
 from os import environ
 
 import pytest
 
-from cagrex.cagr import CAGR, Class, ScheduleTime, NotLoggedIn, Weekday
-
+from cagrex.cagr import CAGR, NotLoggedIn, StudentClass
+from tests.util import load_credentials
 
 network_needed = pytest.mark.skipif(
     environ.get("NETWORK_TESTS") != "1",
     reason="NETWORK_TESTS variable required since test requires network access."
 )
 
-requires_auth = pytest.mark.skip(
-    reason="No authentication method implemented for tests yet."
+CREDENTIALS = load_credentials()
+
+requires_auth = pytest.mark.skipif(
+    CREDENTIALS is None,
+    reason="Credentials file missing."
 )
 
 
 @network_needed
 def test_subject_retrieval():
-    SUBJECT_ID, SEMESTER = "INE5417", "20172"
-    cagr = CAGR()
-    subject = cagr.subject(SUBJECT_ID, SEMESTER)
+    subject_id = "INE5417"
+    semester = "20172"
 
-    assert subject.subject_id == SUBJECT_ID
+    cagr = CAGR()
+    subject = cagr.subject(subject_id, semester)
+
+    assert subject.subject_id == subject_id
     assert subject.name == "Engenharia de Software I"
     assert subject.instruction_hours == 90
     assert subject.syllabus.startswith("Análise de requisitos:")
@@ -46,8 +50,41 @@ def test_student_not_logged_in():
 @requires_auth
 def test_student_logged_in():
     cagr = CAGR()
+    cagr.login(**CREDENTIALS)
 
     student = cagr.student("16100719")
 
-    assert student["nome"] == "Cauê Baasch de Souza"
-    assert student["curso"] == "Ciências da Computação"
+    assert student.name == "Cauê Baasch de Souza"
+    assert student.program == "CIÊNCIAS DA COMPUTAÇÃO"
+    assert student.classes == [
+        StudentClass(
+            name="Redes de Computadores I",
+            subject_id="INE5414",
+            class_id="04208",
+        ),
+        StudentClass(
+            name="Construção de Compiladores",
+            subject_id="INE5426",
+            class_id="06208",
+        ),
+        StudentClass(
+            name="Planejamento e Gestão de Projetos",
+            subject_id="INE5427",
+            class_id="06208",
+        ),
+        StudentClass(
+            name="Introdução ao Trabalho de Conclusão de Curso",
+            subject_id="INE5453",
+            class_id="06208",
+        ),
+        StudentClass(
+            name="Bancos de Dados III",
+            subject_id="INE5600",
+            class_id="06238",
+        ),
+        StudentClass(
+            name="Introdução à Internacionalização e Localização de Software",
+            subject_id="INE5653",
+            class_id="07238",
+        )
+    ]
