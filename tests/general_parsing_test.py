@@ -1,7 +1,6 @@
 from datetime import time as Time
 
 import bs4
-import pytest
 
 from cagrex.cagr import _table_to_classlist, _parse_time, Class, ScheduleTime, Weekday
 

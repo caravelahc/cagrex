@@ -118,3 +118,31 @@ Usage
  'porcentagem': 7.042253521126761}
 
 ```
+
+Running tests
+-------------
+Run tests without network access with:
+```bash
+$ pytest
+```
+
+To enable network access:
+```bash
+$ NETWORK_TESTS=1 pytest
+```
+
+To enable tests that required authentication, you must
+provide a `tests/credentials.json` file.
+```
+file: tests/credentials.json
+
+{
+    "username": "",
+    "password": ""
+}
+```
+
+And run:
+```bash
+$ NETWORK_TESTS=1 pytest
+```
