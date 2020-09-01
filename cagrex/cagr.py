@@ -87,6 +87,10 @@ def _parse_time(time: str) -> ScheduleTime:
     )
 
 
+def _get_program_name(page):
+        return page.find_all("span", class_="texto_pequeno3")[3].get_text()
+
+
 def _make_class(data: Dict[str, str]) -> Class:
     return Class(
         class_id=data["turma"],
@@ -144,13 +148,12 @@ class CAGR:
 
     def _memberlist_html_from_forum(self, room_id):
         url = "http://forum.cagr.ufsc.br/listarMembros.jsf"
-        params = {"salaId": room_id}
+        params = {"salaId": forum_program_id(room_id)}
         self._browser.open(url, params=params)
         page = self._browser.get_current_page()
 
         students = page.find_all("tr", class_="cor1_celula_forum")
         students.extend(page.find_all("tr", class_="cor2_celula_forum"))
-
         return students
 
     def _is_student_suspended(self, student):
@@ -286,14 +289,13 @@ class CAGR:
             semester = student.find("span", class_="texto_pequeno3").get_text()
             semester = _get_semester_from_id(semester)
             counter[semester] += 1
-
-        program_name = page.find("td", class_="coluna5_listar_membros").get_text()
+        program_name = _get_program_name(page)
 
         return {"curso": program_name, "alunos_por_semestre": counter.most_common()}
 
     def students_from_subject(self, program_id):
         url = "http://forum.cagr.ufsc.br/listarMembros.jsf"
-        params = {"salaId": "100000" + program_id}
+        params = {"salaId": forum_program_id(program_id)}
         self._browser.open(url, params=params)
         page = self._browser.get_current_page()
 
@@ -353,8 +355,7 @@ class CAGR:
 
         students = self._memberlist_html_from_forum(program_id)
         page = self._browser.get_current_page()
-
-        program_name = page.find("td", class_="coluna5_listar_membros").get_text()
+        program_name = _get_program_name(page)
 
         return {"curso": program_name, "estudantes": len(students)}
 
@@ -365,8 +366,7 @@ class CAGR:
         students = self._memberlist_html_from_forum(program_id)
         total_students = len(students)
         page = self._browser.get_current_page()
-
-        program_name = page.find("td", class_="coluna5_listar_membros").get_text()
+        program_name = _get_program_name(page)
 
         pool = ThreadPoolExecutor()
         futures = []
