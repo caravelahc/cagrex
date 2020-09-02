@@ -374,9 +374,12 @@ class CAGR:
             futures.append(pool.submit(self._is_student_suspended, student))
 
         suspended = 0
+        students_processed = 0
         for f in as_completed(futures):
             if f.result():
                 suspended += 1
+            students_processed += 1
+            print(f"Progress: {students_processed}/{total_students} students ({suspended} suspended)", end="\r")
 
         return {
             "curso": program_name,
