@@ -3,8 +3,9 @@ from __future__ import annotations
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from datetime import time
-from enum import auto, IntEnum
+from datetime import date as Date
+from datetime import time as Time
+from enum import IntEnum, auto
 from functools import partial
 from typing import List, Optional, Dict, Tuple
 
@@ -107,7 +108,7 @@ def _make_class(data: Dict[str, str]) -> Class:
         orders_without_vacancy=int(data["pedidos sem vaga"] or "0"),
         special_students=int(data["alunos especiais"]),
         teachers=data["professor"].splitlines(),
-        schedule=[_parse_time(t) for t in data["horários"].splitlines()]
+        schedule=[_parse_time(time) for time in data["horários"].splitlines()],
     )
 
 
@@ -120,10 +121,7 @@ def _table_to_dicts(table: bs4.Tag) -> List[Dict[str, str]]:
         [c.get_text("\n", strip=True) for c in row.find_all("td")]
         for row in table.find_all("tr", class_="rich-table-row")
     ]
-    dicts = [
-        {header: value for header, value in zip(headers, row)}
-        for row in rows
-    ]
+    dicts = [{header: value for header, value in zip(headers, row)} for row in rows]
 
     return dicts
 
@@ -133,9 +131,7 @@ def _table_to_classlist(table: bs4.Tag) -> List[Class]:
 
 
 def _load_name_and_syllabus(subject_id: str) -> Tuple[str, str]:
-    response = requests.get(
-        CAGR_URL + f"ementaDisciplina.xhtml?codigoDisciplina={subject_id}"
-    )
+    response = requests.get(CAGR_URL + f"ementaDisciplina.xhtml?codigoDisciplina={subject_id}")
     page_content = BeautifulSoup(response.text, "html.parser")
     name = page_content.find("span").get_text("\n", strip=True).split(" - ")[1]
     syllabus = page_content.find("td").get_text("\n", strip=True)
@@ -210,9 +206,7 @@ class CAGR:
 
         page = self._browser.get_current_page()
 
-        columns = (
-            page.find_all("td", class_=f"coluna{i + 1}_listar_salas") for i in range(4)
-        )
+        columns = (page.find_all("td", class_=f"coluna{i+1}_listar_salas") for i in range(4))
 
         rows = zip(*columns)
         classes = [
@@ -306,9 +300,7 @@ class CAGR:
 
         return [
             {
-                "id": int(
-                    student.find("td", class_="coluna2_listar_membros").get_text()
-                ),
+                "id": int(student.find("td", class_="coluna2_listar_membros").get_text()),
                 "nome": student.find("td", class_="coluna4_listar_membros").get_text(),
             }
             for student in students
@@ -381,7 +373,10 @@ class CAGR:
             if f.result():
                 suspended += 1
             students_processed += 1
-            print(f"Progress: {students_processed}/{total_students} students ({suspended} suspended)", end="\r")
+            print(
+                f"Progress: {students_processed}/{total_students} students ({suspended} suspended)",
+                end="\r",
+            )
 
         return {
             "curso": program_name,

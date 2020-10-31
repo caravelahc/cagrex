@@ -2,7 +2,7 @@ from datetime import time as Time
 
 import bs4
 
-from cagrex.cagr import _table_to_classlist, _parse_time, Class, ScheduleTime, Weekday
+from cagrex.cagr import Class, ScheduleTime, Weekday, _parse_time, _table_to_classlist
 
 
 def test_time_from_str():
@@ -28,7 +28,7 @@ def test_time_from_str():
 
 def test_class_from_table():
     """Tests if classes are correctly extracted from <table> tags."""
-    with open('tests/assets/class_table.html') as f:
+    with open("tests/assets/class_table.html") as f:
         table_html = f.read()
 
     table = bs4.BeautifulSoup(table_html, "html.parser")
