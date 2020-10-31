@@ -48,7 +48,15 @@ def test_student_not_logged_in():
 
 @network_needed
 @requires_auth
+@pytest.mark.skip(reason="Still needs work")
 def test_student_logged_in():
+    """This test used to work on the second semester of 2019.
+    
+    Then, the student progressed to other classes and the test began to fail.
+    
+    Solving this test will require a mock, or an adaptation of the student() function
+        in order to fix the target semester of interest (if that is even possible) """
+
     cagr = CAGR()
     cagr.login(**CREDENTIALS)
 
