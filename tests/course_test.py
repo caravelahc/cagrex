@@ -8,7 +8,7 @@ from tests.util import load_credentials
 
 network_needed = pytest.mark.skipif(
     environ.get("NETWORK_TESTS") != "1",
-    reason="NETWORK_TESTS variable required since test requires network access."
+    reason="NETWORK_TESTS variable required since test requires network access.",
 )
 
 CREDENTIALS = load_credentials()
@@ -33,10 +33,7 @@ def test_subject_retrieval():
     assert subject.syllabus.startswith("Análise de requisitos:")
 
     expected_class_ids = ["04208A", "04208B"]
-    assert all([
-        class_.class_id in expected_class_ids
-        for class_ in subject.classes
-    ])
+    assert all([class_.class_id in expected_class_ids for class_ in subject.classes])
 
 
 @network_needed
