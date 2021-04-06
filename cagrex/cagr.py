@@ -88,7 +88,7 @@ def _parse_time(time: str) -> ScheduleTime:
 
 
 def _get_program_name(page):
-        return page.find_all("span", class_="texto_pequeno3")[3].get_text()
+    return page.find_all("span", class_="texto_pequeno3")[3].get_text()
 
 
 def _make_class(data: Dict[str, str]) -> Class:
@@ -281,7 +281,7 @@ class CAGR:
         if not self._logged_in:
             raise NotLoggedIn()
 
-        students = self._memberlist_html_from_forum(forum_program_id(program_id))
+        students = self._memberlist_html_from_forum(program_id)
         page = self._browser.get_current_page()
 
         counter = Counter()
