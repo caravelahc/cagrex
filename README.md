@@ -80,28 +80,28 @@ Usage
                   'turma': '04208B'}]}
 
 >>> pprint(cagr.students_per_semester(cagr.program_id()))
-{'curso': 'CIÊNCIAS DA COMPUTAÇÃO',
-'alunos_por_semestre': [('18.2', 50),
-                        ('17.2', 48),
-                        ('18.1', 44),
-                        ('17.1', 44),
-                        ('16.2', 39),
-                        ('16.1', 35),
-                        ('15.2', 34),
-                        ('13.2', 32),
-                        ('15.1', 30),
-                        ('14.2', 25),
-                        ('12.1', 20),
-                        ('13.1', 18),
-                        ('12.2', 14),
-                        ('11.2', 12),
-                        ('14.1', 11),
-                        ('11.1', 6),
-                        ('10.2', 4),
-                        ('09.2', 1),
-                        ('09.1', 1),
-                        ('10.1', 1),
-                        ('08.2', 1)]}
+{'alunos_por_semestre': [('19.2', 54),
+                         ('20.1', 52),
+                         ('20.2', 52),
+                         ('19.1', 50),
+                         ('18.2', 40),
+                         ('17.2', 37),
+                         ('18.1', 37),
+                         ('17.1', 31),
+                         ('16.2', 27),
+                         ('16.1', 26),
+                         ('15.2', 18),
+                         ('15.1', 14),
+                         ('14.2', 14),
+                         ('13.2', 11),
+                         ('14.1', 6),
+                         ('13.1', 6),
+                         ('12.2', 5),
+                         ('12.1', 5),
+                         ('11.1', 2),
+                         ('10.2', 1),
+                         ('11.2', 1)],
+'curso': 'CIÊNCIAS DA COMPUTAÇÃO'}
 
 >>> pprint(cagr.students_from_course(cagr.program_id()))
 [{'id': 16100719, 'name': 'Cauê Baasch de Souza'},
@@ -123,12 +123,12 @@ Running tests
 -------------
 Run tests without network access with:
 ```bash
-$ pytest
+$ poetry run pytest
 ```
 
 To enable network access:
 ```bash
-$ NETWORK_TESTS=1 pytest
+$ NETWORK_TESTS=1 poetry run pytest
 ```
 
 To enable tests that required authentication, you must
@@ -140,9 +140,4 @@ file: tests/credentials.json
     "username": "",
     "password": ""
 }
-```
-
-And run:
-```bash
-$ NETWORK_TESTS=1 pytest
 ```
