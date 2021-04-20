@@ -13,10 +13,7 @@ network_needed = pytest.mark.skipif(
 
 CREDENTIALS = load_credentials()
 
-requires_auth = pytest.mark.skipif(
-    CREDENTIALS is None,
-    reason="Credentials file missing."
-)
+requires_auth = pytest.mark.skipif(CREDENTIALS is None, reason="Credentials file missing.")
 
 
 @network_needed

@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-_PATH = Path(__file__).parent / 'credentials.json'
+_PATH = Path(__file__).parent / "credentials.json"
 
 
 def load_credentials():
