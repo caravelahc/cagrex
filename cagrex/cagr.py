@@ -7,7 +7,7 @@ from datetime import date as Date
 from datetime import time as Time
 from enum import IntEnum, auto
 from functools import partial
-from typing import List, Optional, Dict, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import bs4
 import mechanicalsoup
@@ -307,10 +307,10 @@ class CAGR:
         ]
 
     def students_from_class(
-            self,
-            subject_id: str,
-            class_id: str,
-            semester: str,
+        self,
+        subject_id: str,
+        class_id: str,
+        semester: str,
     ) -> List[Student]:
         url = "http://forum.cagr.ufsc.br/formularioBusca.jsf"
         self._browser.open(url)
