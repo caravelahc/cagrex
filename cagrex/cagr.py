@@ -15,6 +15,7 @@ import requests
 from bs4 import BeautifulSoup
 
 CAGR_URL = "http://cagr.sistemas.ufsc.br/modules/comunidade/cadastroTurmas/"
+SEARCH_URL = "http://forum.cagr.ufsc.br/formularioBusca.jsf"
 
 
 class InvalidCredentials(Exception):
@@ -126,8 +127,24 @@ def _table_to_dicts(table: bs4.Tag) -> List[Dict[str, str]]:
     return dicts
 
 
-def _table_to_classlist(table: bs4.Tag) -> List[Class]:
-    return [_make_class(_dict) for _dict in _table_to_dicts(table)]
+# Helper functions to get column data from search page results
+def _class_search_subject_name(element):
+    return element.find("span").get_text(strip=True)
+
+
+def _class_search_subject_id(element):
+    return element.find("td", attrs={"class": "coluna2_listar_salas"}).get_text(strip=True)
+
+
+def _class_search_class_id(element):
+    return element.find("td", attrs={"class": "coluna3_listar_salas"}).get_text(strip=True)
+
+
+def _class_search_subject_semester(element):
+    return element.find("td", attrs={"class": "coluna4_listar_salas"}).get_text(strip=True)
+
+
+# ---
 
 
 def _load_name_and_syllabus(subject_id: str) -> Tuple[str, str]:
@@ -151,7 +168,7 @@ class CAGR:
 
     def _memberlist_html_from_forum(self, room_id):
         url = "http://forum.cagr.ufsc.br/listarMembros.jsf"
-        params = {"salaId": forum_program_id(room_id)}
+        params = {"salaId": room_id}
         self._browser.open(url, params=params)
         page = self._browser.get_current_page()
 
@@ -312,8 +329,7 @@ class CAGR:
         class_id: str,
         semester: str,
     ) -> List[Student]:
-        url = "http://forum.cagr.ufsc.br/formularioBusca.jsf"
-        self._browser.open(url)
+        self._browser.open(SEARCH_URL)
         form = self._browser.select_form("form#buscaSala")
 
         params = {
@@ -339,9 +355,51 @@ class CAGR:
 
             student_id = row.find("td", class_="coluna2_listar_membros").get_text()
             student_name = row.find("td", class_="coluna4_listar_membros").get_text()
-            students.append(Student(student_id, student_name))
+            students.append(Student(student_id, student_name, "", []))
 
         return students
+
+    def search_classes(self, subject_id: str, semester: str) -> List[Student]:
+        if not self._logged_in:
+            raise NotLoggedIn()
+
+        self._browser.open(SEARCH_URL)
+        form = self._browser.select_form("form#buscaSala")
+
+        params = {
+            "buscaSala:salaCodigo": subject_id,
+            "buscaSala:salaTurma": "",
+            "buscaSala:salaSemestre": semester,
+            "buscaSala:j_id_jsp_632900747_29": "disciplinas",
+        }
+
+        for param, value in params.items():
+            self._browser[param] = value
+
+        page = BeautifulSoup(self._browser.submit_selected().text, "html.parser")
+        tr = page.find_all("tr", attrs={"class": "cor1_celula_forum"})
+        tr.extend(page.find_all("tr", attrs={"class": "cor2_celula_forum"}))
+        classes = [
+            {
+                "name": _class_search_subject_name(x),
+                "code": _class_search_subject_id(x),
+                "class": _class_search_class_id(x),
+                "semester": _class_search_subject_semester(x),
+                "students": [
+                    {
+                        "name": s.name,
+                        "student_id": s.student_id,
+                    }
+                    for s in self.students_from_class(
+                        _class_search_subject_id(x),
+                        _class_search_class_id(x),
+                        _class_search_subject_semester(x),
+                    )
+                ],
+            }
+            for x in tr
+        ]
+        return classes
 
     def total_students(self, program_id):
         if not self._logged_in:
