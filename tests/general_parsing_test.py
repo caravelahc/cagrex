@@ -2,7 +2,7 @@ from datetime import time as Time
 
 import bs4
 
-from cagrex.cagr import Class, ScheduleTime, Weekday, _parse_time, _table_to_classlist
+from cagrex.cagr import Class, ScheduleTime, Weekday, _parse_time, _make_class, _table_to_dicts
 
 
 def test_time_from_str():
@@ -80,4 +80,4 @@ def test_class_from_table():
         ),
     ]
 
-    assert _table_to_classlist(table) == expected_classes
+    assert [_make_class(_dict) for _dict in _table_to_dicts(table)] == expected_classes
