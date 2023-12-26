@@ -2,7 +2,7 @@ from datetime import time as Time
 
 import bs4
 
-from cagrex.cagr import Class, ScheduleTime, Weekday, _parse_time, _make_class, _table_to_dicts
+from cagrex.cagr import Class, ScheduleTime, Weekday, _make_class, _parse_time, _table_to_dicts
 
 
 def test_time_from_str():
